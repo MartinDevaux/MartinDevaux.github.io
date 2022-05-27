@@ -9,4 +9,4 @@ redirect_from:
 
 {% include base_path %}
 
-Have a look at my [CV](MartinDevaux.github.io/files/20220323_Devaux_CV.pdf), up to date as of March 2022.
+Have a look at my [CV](/files/20220323_Devaux_CV.pdf), up to date as of March 2022.
