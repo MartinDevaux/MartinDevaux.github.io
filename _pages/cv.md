@@ -11,9 +11,10 @@ redirect_from:
 
 Education
 ======
-* B.S. in GitHub, GitHub University, 2012
-* M.S. in Jekyll, GitHub University, 2014
-* Ph.D in Version Control Theory, GitHub University, 2018 (expected)
+* BA in Humanities and Social Sciences, Sciences Po Paris, 2016
+* BA in Economics, Keio University, 2016
+* MPP, Sciences Po Paris, 2019
+* MPA, London School of Economics and Political Science, 2019
 
 Work experience
 ======
