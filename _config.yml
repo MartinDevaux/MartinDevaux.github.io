@@ -19,7 +19,7 @@ breadcrumbs              : false # true, false (default)
 words_per_minute         : 160
 future                   : true
 read_more                : "disabled" # if enabled, adds "Read more" links to excerpts
-talkmap_link             : false #change to true to add link to talkmap on talks page
+# talkmap_link             : false #change to true to add link to talkmap on talks page
 comments:
   provider               : # false (default), "disqus", "discourse", "facebook", "google-plus", "staticman", "custom"
   disqus:
@@ -102,7 +102,7 @@ author:
   instagram        :
   impactstory      : 
   lastfm           :
-  linkedin         : "https://www.linkedin.com/in/martin-devaux-a3693a6b/"
+  linkedin         : "martin-devaux-a3693a6b"
   orcid            : 
   pinterest        :
   soundcloud       :
@@ -181,12 +181,12 @@ collections:
   publications:
     output: true
     permalink: /:collection/:path/
-  portfolio:
-    output: true
-    permalink: /:collection/:path/
-  talks:
-    output: true
-    permalink: /:collection/:path/
+#  portfolio:
+#    output: true
+#    permalink: /:collection/:path/
+#  talks:
+#    output: true
+#    permalink: /:collection/:path/
 
 
 # Defaults
@@ -228,22 +228,22 @@ defaults:
       share: true
       comments: true
   # _portfolio
-  - scope:
-      path: ""
-      type: portfolio
-    values:
-      layout: single
-      author_profile: true
-      share: true
-      comment: true
+  # - scope:
+  #     path: ""
+  #     type: portfolio
+  #   values:
+  #     layout: single
+  #     author_profile: true
+  #     share: true
+  #     comment: true
   # _talks
-  - scope:
-      path: ""
-      type: talks
-    values:
-      layout: talk
-      author_profile: true
-      share: true
+  # - scope:
+  #     path: ""
+  #     type: talks
+  #   values:
+  #     layout: talk
+  #     author_profile: true
+  #     share: true
 
 # Sass/SCSS
 sass:
