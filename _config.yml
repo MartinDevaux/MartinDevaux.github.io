@@ -75,10 +75,13 @@ social:
 
 # Analytics
 analytics:
-  provider               :  "google" # false (default), "google", "google-universal", "custom"
+  provider               :  false # false (default), "google", "google-universal", "custom"
   google:
-    tracking_id          : G-3YLPVTJZ5D
+    tracking_id          : 
 
+google:
+  tag_manager:
+  container_id: GTM-N7MXS9F
 
 # Site Author
 author:
