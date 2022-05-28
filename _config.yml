@@ -5,6 +5,8 @@
 # For technical reasons, this file is *NOT* reloaded automatically when you use
 # `jekyll serve`. If you change this file, please restart the server process.
 
+# Check here: https://jsonformatter.org/yaml-formatter#Sample
+
 # Site Settings
 locale                   : "en-US"
 title                    : "Martin Devaux"
@@ -14,7 +16,7 @@ description              : &description "personal description"
 url                      : https://MartinDevaux.github.io # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "MartinDevaux/MartinDevaux.github.io"
-# teaser                   : # filename of teaser fallback teaser image placed in /images/, .e.g. "500x300.png"
+teaser                   : # filename of teaser fallback teaser image placed in /images/, .e.g. "500x300.png"
 breadcrumbs              : false # true, false (default)
 words_per_minute         : 160
 future                   : true
@@ -181,12 +183,12 @@ collections:
   publications:
     output: true
     permalink: /:collection/:path/
- portfolio:
-   output: true
-   permalink: /:collection/:path/
- talks:
-   output: true
-   permalink: /:collection/:path/
+  portfolio:
+    output: true
+    permalink: /:collection/:path/
+  talks:
+    output: true
+    permalink: /:collection/:path/
 
 
 # Defaults
