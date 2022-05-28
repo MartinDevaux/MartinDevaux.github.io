@@ -79,8 +79,6 @@ analytics:
   google:
     tracking_id          : 
 
-google_analytics: G-XMDYHC5Y89
-
 # Site Author
 author:
   name             : "Martin Devaux"
