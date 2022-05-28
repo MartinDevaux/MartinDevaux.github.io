@@ -1,5 +1,5 @@
 ---
-title: Political Science PhD admission decisions
+title: 'Political Science PhD admission decisions'
 date: 2020-11-18
 permalink: /2020/11/political-science-phd-admission-decisions/
 ---
