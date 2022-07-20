@@ -9,4 +9,4 @@ redirect_from:
 
 {% include base_path %}
 
-Have a look at my <a href="/files/20220323_Devaux_CV.pdf" target="_blank">CV</a>, up to date as of March 2022.
+Have a look at my <a href="/files/20220323_Devaux_CV.pdf" target="_blank">professional CV</a>, up to date as of March 2022.
