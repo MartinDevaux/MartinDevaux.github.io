@@ -3,6 +3,7 @@ layout: archive
 title: "Research"
 permalink: /research/
 author_profile: true
+exclude: true
 ---
 
 {% if author.googlescholar %}
