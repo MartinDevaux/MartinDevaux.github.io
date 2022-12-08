@@ -17,7 +17,7 @@ I have only included US schools from <a href="https://www.usnews.com/best-gradua
 
 Select the **school** you have applied to and **hover over past admission decisions (the colored dots)** to get an idea of when you might expect results this year.
 
-*The app is built with [R Shiny](https://martindevaux.com/2021/01/r_resources_beginners_intermediate/) (code is available on [GitHub](https://github.com/MartinDevaux/GradCafe)). The color code was amended for the app to be color blind-friendly.*
+*The app is built with [R Shiny](https://martindevaux.com/2021/01/r_resources_beginners_intermediate/) (code is available on [GitHub](https://github.com/MartinDevaux/GradCafe)).*
 
 <br/>
 
