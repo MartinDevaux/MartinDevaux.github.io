@@ -9,4 +9,4 @@ redirect_from:
 
 {% include base_path %}
 
-You can find my most recent academic CV <a href="/files/20240220_Academic_CV_Devaux.pdf" target="_blank">here</a>.
+You can find my most recent academic CV <a href="/files/Academic_CV_Devaux.pdf" target="_blank">here</a>.
