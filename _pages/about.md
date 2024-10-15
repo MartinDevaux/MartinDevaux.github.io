@@ -8,7 +8,7 @@ redirect_from:
   - /about.html
 ---
 
-My name is Martin Devaux and I am a fourth-year PhD candidate in Political Science at Columbia University. I study comparative politics and political methodology.
+My name is Martin Devaux and I am a fifth-year PhD candidate in Political Science at Columbia University. I study comparative politics and political methodology.
 
 Substantively, I study immigration politics in developed democracies. My dissertation work is on the local impact of immigrant-owned businesses on community attitudes toward immigration, with a focus on France. I also care about the housing affordability crisis and the persistence of concentrated poverty in cities. In another project, I study how the interaction of local politicians and residents shapes the production of public housing.
 
