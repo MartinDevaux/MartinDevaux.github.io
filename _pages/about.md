@@ -14,4 +14,4 @@ Substantively, I study immigration politics in developed democracies. My dissert
 
 My current methodological interests revolve around the external validity of experiments. You can find <a href="https://naokiegami.com/paper/external_robust.pdf" target="_blank">here</a> the working paper I co-authored with Naoki Egami on Robustness to External Validity Bias, and <a href="https://github.com/naoki-egami/exr" target="_blank">here</a> the associated R package. I am separately working on the decomposition of systematic treatment effect heterogeneity in multisite experiments and meta-analyses.
 
-Prior to my PhD, I was an Associate at <a href="https://www.idinsight.org/" target="_blank">IDinsight</a>, and an MPA student at the London School of Economics.
+Prior to my PhD, I was an Associate at <a href="https://www.idinsight.org/" target="_blank">IDinsight</a> in Rabat, Morocco. I hold an MPA from the London School of Economics and an MPP from Sciences Po Paris. I graduated in 2016 with a BA in Economics from Keio University, Tokyo and a BA from Sciences Po Paris.
