@@ -6,12 +6,18 @@ author_profile: true
 invisible: true
 ---
 
-{% if author.googlescholar %}
-  You can also find my articles on <u><a href="{{author.googlescholar}}">my Google Scholar profile</a>.</u>
-{% endif %}
+### Comparative Politics
 
-{% include base_path %}
+* **Business as (Un)usual: the Impact of Immigrant Entrepreneurship on Local Attitudes**
+   
+   Martin Devaux. Working Paper
 
-{% for post in site.publications reversed %}
-  {% include archive-single.html %}
-{% endfor %}
+### Statistical Methods
+
+*  **Quantifying Robustness to External Validity Bias**
+   
+   Martin Devaux and Naoki Egami. Working Paper. [<a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4213753">preprint</a>]
+
+* **Decomposing Treatment Effect Heterogeneity in Multisite Experiments**
+   
+   Martin Devaux. Working Paper
