@@ -18,8 +18,8 @@ main:
   - title: "CV"
     url: /cv/
     
-  - title: "PhD Admission Timeline"
-    url: /2020/11/political-science-phd-admission-decisions/
+  # - title: "PhD Admission Timeline"
+  #   url: /2020/11/political-science-phd-admission-decisions/
     
   # - title: "Guide"
   #   url: /markdown/
