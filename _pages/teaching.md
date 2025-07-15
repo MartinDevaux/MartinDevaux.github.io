@@ -6,10 +6,15 @@ author_profile: true
 invisible: true
 ---
 
-* Teaching Assistant, **PhD Math Camp**, Dr. Benjamin Goodrich Fall 2024
+* **Course Assistant, PhD Math Camp**: Fall 2024<br>
+  Dr. Benjamin Goodrich
 
-* Teaching Assistant, **Honors Seminar**, Prof. John Huber Fall 2023-Spring 2024
+* **Teaching Assistant, Honors Seminar (POLS 3999, Undergraduate)**: Fall 2023 / Spring 2024<br>
+  Prof. John Huber [<a href="/files/POLSUN3999_evals_Devaux.pdf" target="_blank">evaluations</a>]
 
-* Teaching Assistant, **Statistical Theory and Causal Inference**, Prof. Naoki Egami Spring 2023
+* **Teaching Assistant, Statistical Theory and Causal Inference (POLSGR 4722, Graduate)**: Spring 2023<br>
+  Prof. Naoki Egami [<a href="/files/POLS4722_evals_Devaux.pdf" target="_blank">evaluations</a>]
 
-* Teaching Assistant, **Mathematics and Statistics for Political Science**, Prof. Naoki Egami Fall 2022
+* **Teaching Assistant, Mathematics and Statistics for Political Science (POLSGR 4700, Graduate)**: Fall 2022<br>
+  Prof. Naoki Egami [<a href="/files/POLS4700_evals_Devaux.pdf" target="_blank">evaluations</a>]
+
