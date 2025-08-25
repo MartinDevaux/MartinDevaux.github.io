@@ -8,13 +8,16 @@ redirect_from:
   - /about.html
 ---
 
-Welcome to my website! My research focuses on the political economy of immigration in developed democracies.
-In my job market paper, I show that the presence of immigrant businesses lead to native backlash and increased support for the far right in France.
-I also study the conditions under which immigrants create businesses, and how 
-My research is supported by the Columbia Center for Political Economy (CPE) and the Columbia Experimental Laboratory for Social Sciences (CELSS).
+Welcome to my website! My research focuses on the political economy of immigration in Western democracies.
+My dissertation examines the politics of immigrant entrepreneurship, a distinctive way immigrants bring their cultural identity into the economy.
+I show that understanding the politics of entrepreneurship at the local level helps understand voting behaviors at the national level,
+bridges economic and cultural explanations for native attitudes, and develops contact theory to incorporate a broader conception of exposure.
 
-My current methodological interests revolve around the external validity of experiments.
-You can find <a href="https://naokiegami.com/paper/external_robust.pdf" target="_blank">here</a> the working paper I co-authored with Naoki Egami on Robustness to External Validity Bias, and <a href="https://github.com/naoki-egami/exr" target="_blank">here</a> the associated R package. I am separately working on the decomposition of systematic treatment effect heterogeneity in multisite experiments and meta-analyses.
+I also study the political determinants of immigrant entrepreneurship and the consequence of discrimination on immigrants' own political behavior.
+Methodologically, I seek to create quantitative methods that help applied researchers be thoughtful about the external validity of their research.
+My research is supported by the <a href="https://politicaleconomy.columbia.edu/" target="_blank">Columbia Center for Political Economy</a> and the <a href="https://celss.iserp.columbia.edu/" target="_blank">Columbia Experimental Laboratory for Social Sciences</a>.
+
+**I am on the 2025/2026 Academic Job Market.**
 
 Prior to my PhD, I was an Associate at <a href="https://www.idinsight.org/" target="_blank">IDinsight</a> in Rabat, Morocco.
 I hold an MPA from the London School of Economics and an MPP from Sciences Po Paris.
