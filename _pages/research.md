@@ -8,7 +8,7 @@ invisible: true
 
 ### Job Market Paper
 
-* Business as (Un)usual: the Impact of Immigrant Entrepreneurship on Local Attitudes<br>
+* Business as (Un)usual: Immigrant Entrepreneurship and Native Backlash<br>
   **Martin Devaux**.
   
 ### Working Papers
