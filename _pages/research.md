@@ -8,16 +8,16 @@ invisible: true
 
 ### Job Market Paper
 
-* Business as (Un)usual: Immigrant Entrepreneurship and Native Backlash<br> [draft available soon]
-  **Martin Devaux**.
+* Business as (Un)usual: Immigrant Entrepreneurship and Native Backlash<br>
+  **Martin Devaux**. [<a href="/files/business_as_unusual.pdf">working paper</a>]
   
 ### Working Papers
 
-* Discrimination and Voting: The Effect of Discrimination on Migrants’ Voting and Partisanship<br> [draft available soon]
-  **Martin Devaux** and Chiara Superti.
+* Discrimination and Voting: The Effect of Discrimination on Migrants’ Voting and Partisanship<br>
+  **Martin Devaux** and Chiara Superti. [draft available soon]
 
 * Quantifying Robustness to External Validity Bias<br>
-  **Martin Devaux** and Naoki Egami. [<a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4213753">paper</a>] [<a href="https://github.com/naoki-egami/exr">package</a>]
+  **Martin Devaux** and Naoki Egami. [<a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4213753">working paper</a>] [<a href="https://github.com/naoki-egami/exr">package</a>]
 
 ### Work in Progress
 
