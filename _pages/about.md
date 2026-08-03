@@ -8,7 +8,7 @@ redirect_from:
   - /about.html
 ---
 
-I am a postdoctoral fellow at the <a href="https://isps.yale.edu/" target="_blank">Institution for Social and Policy Studies</a> of Yale University, where I study the political economy of immigration in Western democracies.
+I am a Postdoctoral Associate at the <a href="https://isps.yale.edu/" target="_blank">Institution for Social and Policy Studies</a> of Yale University, where I study the political economy of immigration in Western democracies.
 Starting in Fall 2027, I will join Yale's <a href="https://politicalscience.yale.edu/" target="_blank">Department of Political Science</a> as an Assistant Professor.
 
 My dissertation examines the politics of immigrant entrepreneurship, a distinctive way immigrants bring their cultural identity into the economy. I also study the consequences of political exclusion on immigrants' own economic opportunities and behavior.
