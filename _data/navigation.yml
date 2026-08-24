@@ -18,6 +18,10 @@ main:
   - title: "CV"
     url: /cv/
     
+  - title: "2027 Forecast"
+    url: /forecast/
+
+    
   # - title: "PhD Admission Timeline"
   #   url: /2020/11/political-science-phd-admission-decisions/
     
