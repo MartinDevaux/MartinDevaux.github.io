@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>France 2027 — Presidential Election Forecast</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="app">
+    <header class="head">
+      <h1>Who will win the 2027 French presidential election?</h1>
+      <p class="sub">A transparent Bayesian poll-aggregation forecast &mdash;
+        first-round vote intention and the runoff.
+        <span id="updated"></span></p>
+    </header>
+
+    <section class="panel">
+      <h2>Who's running?</h2>
+      <p class="note">Choose the field &mdash; the left and centre are multi-select,
+        the RN fields one nominee (Le&nbsp;Pen or Bardella), and Les Républicains
+        may sit it out. Only candidates polled recently enough to estimate are
+        shown; the always-included set and minor candidates are fixed. The
+        forecast recomputes live from the model's posterior draws.
+        <button id="pick-reset" class="linklike">reset to default</button></p>
+      <div id="candidate-picker"></div>
+      <p id="pick-warning" class="warn" style="display:none">Select at least two candidates.</p>
+    </section>
+
+    <section class="panel">
+      <button id="params-toggle" class="method-btn" aria-expanded="false">
+        &#9656;&nbsp; Parameters &amp; assumptions</button>
+      <div id="params-body" class="method-body" hidden>
+        <p class="note">When you untick a candidate, they &ldquo;drop out&rdquo; and their vote is
+          <b>redistributed to the remaining candidates by inverse-distance weighting</b> on a
+          left&ndash;right axis (nearer candidates get more), with an <b>abstention outlet</b> for votes
+          that would rather stay home &mdash; instead of the default proportional split. These positions
+          and knobs are explicit <i>assumptions</i>; adjust them and everything recomputes live.
+          <button id="params-reset" class="linklike">reset parameters</button></p>
+        <div id="param-globals"></div>
+        <h3>Candidate positions&nbsp; (0 = far left &nbsp;&rarr;&nbsp; 100 = far right)</h3>
+        <p class="note">The left&ndash;right <b>ordering is fixed</b> &mdash; each slider is clamped
+          between its neighbours, so you calibrate <i>distances</i>, not who sits left of whom.</p>
+        <div id="param-positions"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Who wins the presidency?</h2>
+      <p class="note">Each dot is one simulated election, placed in the row of the
+        candidate who won it &mdash; so the width of each cloud is that
+        candidate's chance of winning. Hover a dot to see that simulation's
+        first-round result and the runoff it produced.
+        (<span id="lineup-note"></span>)</p>
+      <div id="windots"></div>
+    </section>
+
+    <section class="panel">
+      <h2>First-round vote intention over time</h2>
+      <p class="note">Lines are the model's estimate; shaded bands are the 80%
+        credible interval, widening toward election day. Dots are individual
+        polls (renormalised within the line-up).</p>
+      <div id="fan"></div>
+      <div id="fan-legend" class="legend"></div>
+    </section>
+
+    <section class="panel">
+      <h2>1,000 simulated elections</h2>
+      <p class="note">Each dot is one simulated first-round result. The two
+        candidates with the highest scores advance to the runoff, so candidates
+        clustered near the top are fighting for the second qualifying spot.</p>
+      <div id="sim"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Most likely runoff match-ups</h2>
+      <p class="note">The runoffs that occur most often across simulations. Each
+        dot is one simulated runoff, placed by the RN candidate's second-round
+        share and coloured by the winner; the dashed line is the 50% threshold.
+        Hover a dot for that runoff's result.</p>
+      <div id="matchups"></div>
+    </section>
+
+    <section class="panel method">
+      <button id="method-toggle" class="method-btn" aria-expanded="false">
+        &#9656;&nbsp; Methodology &amp; model details</button>
+      <div id="method-body" class="method-body" hidden>
+
+        <p>The forecast is a <b>Bayesian poll-aggregation model</b> in the tradition of
+        <a href="https://fivethirtyeight.com" target="_blank" rel="noopener">FiveThirtyEight</a>
+        and <a href="https://hdsr.mitpress.mit.edu/pub/nw1dzd02" target="_blank" rel="noopener">the
+        <i>Economist</i>'s 2020 model</a> (Gelman, Morris &amp; Heidemanns), which in turn build on
+        the dynamic state-space election forecasting of
+        <a href="https://votamatic.org/wp-content/uploads/2013/07/Linzer-JASA13.pdf" target="_blank" rel="noopener">Linzer (2013)</a>.
+        We adapt that lineage to
+        France's two-round, many-candidate system. It has two stages &mdash; a first-round
+        vote-share model and a runoff model &mdash; and every prior is
+        <b>calibrated on the 2012&ndash;2022 cycles</b>, so the uncertainty is empirically grounded
+        rather than assumed. Everything is fit in
+        <a href="https://mc-stan.org" target="_blank" rel="noopener">Stan</a>
+        (first round: 4 chains, R&#770; &#8776; 1.00), and this page recomputes the forecast for any
+        chosen line-up directly from the posterior draws.</p>
+
+        <h3>1&nbsp;&middot;&nbsp;First round: latent vote intention as a random walk</h3>
+        <p>For candidates <i>c</i> = 1&hellip;<i>C</i> over weeks <i>w</i> = 1&hellip;<i>W</i>
+        (with <i>W</i> the election week), a latent support <i>&beta;<sub>c,w</sub></i>
+        on an unbounded (log-odds&ndash;like) scale follows a Gaussian random walk:</p>
+        <div class="box"><span class="term">Latent / log-odds scale</span> Vote shares live between
+        0 and 1, which is awkward to model directly. We instead track an unconstrained number for each
+        candidate &mdash; a
+        <a href="https://en.wikipedia.org/wiki/Logit" target="_blank" rel="noopener">log-odds</a>-like
+        &ldquo;support&rdquo; (<i>latent</i> = not observed, inferred) &mdash; and turn the whole vector
+        back into shares with the softmax below. On this scale movements are additive and take tidy
+        Normal priors.</div>
+        <div class="eq"><i>&beta;<sub>c,w</sub></i> = <i>&beta;<sub>c,w&minus;1</sub></i>
+          + <i>&sigma;</i>&thinsp;<i>&epsilon;<sub>c,w</sub></i>,
+          &nbsp;&nbsp; <i>&epsilon;<sub>c,w</sub></i> &sim; Normal(0, 1),
+          &nbsp;&nbsp; <i>&beta;<sub>c,1</sub></i> &sim; Normal(0, 1.5<sup>2</sup>).</div>
+        <div class="box"><span class="term">Random walk</span> A
+        <a href="https://en.wikipedia.org/wiki/Random_walk" target="_blank" rel="noopener">random walk</a>
+        lets each candidate's support wander week to week by small Normal steps, with no built-in trend:
+        today's level is yesterday's plus noise. It encodes &ldquo;opinion moves gradually, and we're
+        more uncertain about weeks with no polls&rdquo; &mdash; which is why the bands pinch at polls and
+        widen in the gaps. Treating opinion as a latent time series like this is the core device of
+        <span class="cite"><a href="https://votamatic.org/wp-content/uploads/2013/07/Linzer-JASA13.pdf" target="_blank" rel="noopener">Linzer
+        (2013)</a> and the <a href="https://hdsr.mitpress.mit.edu/pub/nw1dzd02" target="_blank" rel="noopener">Economist
+        model</a>.</span></div>
+        <p>The weekly step <i>&sigma;</i> = 0.045 is <b>fixed</b> rather than estimated. This is a
+        deliberate regularisation: the 2027 field is volatile, and letting <i>&sigma;</i> float lets it
+        soak up scenario-to-scenario disagreement as if it were real movement.
+        <span class="cite">(This departs from the usual &ldquo;let the data speak&rdquo; instinct &mdash;
+        cf. Gelman's
+        <a href="https://github.com/stan-dev/stan/wiki/prior-choice-recommendations" target="_blank" rel="noopener">weakly-informative-prior
+        advice</a> &mdash; trading a little in-sample fidelity for a
+        smoother, less overconfident line; the genuine forecast-horizon spread is recovered from history
+        in &sect;3.)</span> The overall level is unidentified by the softmax below, so we anchor it with a
+        soft sum-to-zero each week,
+        &sum;<sub><i>c</i></sub>&thinsp;<i>&beta;<sub>c,w</sub></i> &sim; Normal(0, 0.1<sup>2</sup>).</p>
+
+        <h3>2&nbsp;&middot;&nbsp;How a poll sees the latent state (subset softmax)</h3>
+        <p>French polls test different <i>line-ups</i>: one release may or may not include
+        a given candidate. A poll <i>i</i> fielded in week <i>w<sub>i</sub></i> by pollster
+        <i>p<sub>i</sub></i> reports shares only over the candidate subset
+        <i>S<sub>i</sub></i> present in that hypothesis. We model it as the
+        <b>softmax over exactly that subset</b> of the latent state plus a pollster
+        <b>house effect</b> <i>&delta;<sub>p,c</sub></i>:</p>
+        <div class="box"><span class="term">Softmax</span> The
+        <a href="https://en.wikipedia.org/wiki/Softmax_function" target="_blank" rel="noopener">softmax</a>
+        turns a vector of unbounded latent numbers into positive shares that sum to 1 &mdash; the
+        many-candidate generalisation of the logistic function. Restricting it to just the candidates in
+        a given poll is what makes a &ldquo;Le&nbsp;Pen vs&hellip;&rdquo; poll and a
+        &ldquo;Bardella vs&hellip;&rdquo; poll both usable: each reports the conditional shares among the
+        candidates actually offered to respondents.</div>
+        <div class="eq"><i>&eta;<sub>i,c</sub></i> = <i>&beta;<sub>c,w<sub>i</sub></sub></i>
+          + <i>&delta;<sub>p<sub>i</sub>,c</sub></i>,
+          &nbsp;&nbsp;
+          <i>&theta;<sub>i,c</sub></i> =
+          exp(<i>&eta;<sub>i,c</sub></i>) &frasl;
+          &sum;<sub><i>c&prime;&isin;S<sub>i</sub></i></sub> exp(<i>&eta;<sub>i,c&prime;</sub></i>),
+          &nbsp; <i>c</i> &isin; <i>S<sub>i</sub></i>.</div>
+        <div class="eq">(<i>y<sub>i,c</sub></i>)<sub><i>c&isin;S<sub>i</sub></i></sub>
+          &sim; Multinomial(<i>n&#771;<sub>i</sub></i>, <i>&theta;<sub>i</sub></i>).</div>
+        <p>This renormalisation <i>is</i> exactly what a restricted-line-up poll measures
+        (conditional shares), so polls with different fields all inform the same
+        <i>&beta;</i>. House effects use a hierarchical scale
+        <i>&delta;<sub>p,c</sub></i> &sim; Normal(0, <i>&sigma;<sub>house</sub></i><sup>2</sup>)
+        and are soft-centred, &sum;<sub><i>p</i></sub>&thinsp;<i>&delta;<sub>p,c</sub></i> &#8776; 0,
+        so <i>&beta;</i> tracks the <i>average</i> pollster.</p>
+        <div class="box"><span class="term">House effect</span> Pollsters have persistent
+        &ldquo;house&rdquo; leans &mdash; one firm consistently a point or two higher for a given
+        candidate, from its methods and weighting. We give each pollster&times;candidate a bias
+        <i>&delta;</i> and force them to average to zero, so the latent <i>&beta;</i> reflects the
+        average pollster rather than any single house. <span class="cite">(Pollster house effects and
+        ratings are central to
+        <a href="https://abcnews.com/538/538s-2024-presidential-election-forecast-works/story?id=110867585" target="_blank" rel="noopener">FiveThirtyEight's
+        aggregation</a>.)</span></div>
+        <p><b>Effective sample size.</b> Reported shares are counts on a deflated sample,</p>
+        <div class="eq"><i>n&#771;<sub>i</sub></i> = <i>n<sub>i</sub></i> &frasl;
+          (<i>d</i><sub>eff</sub> &middot; <i>m<sub>i</sub></i>),</div>
+        <div class="box"><span class="term">Design effect &amp; effective sample size</span> A real poll
+        varies more than a
+        <a href="https://en.wikipedia.org/wiki/Simple_random_sample" target="_blank" rel="noopener">simple
+        random sample</a> of the same size (quotas, weighting, mode). The
+        <a href="https://en.wikipedia.org/wiki/Design_effect" target="_blank" rel="noopener">design
+        effect</a> <i>d</i><sub>eff</sub> &#8776; 2.2 measures how much more; dividing the headline
+        <i>n</i> by it gives the <i>effective</i> sample the model should actually trust. We also divide
+        by <i>m<sub>i</sub></i>, the number of line-ups tested in one fieldwork, so five hypotheses from a
+        single sample aren't double-counted as five independent polls.
+        <span class="cite">(FiveThirtyEight similarly
+        <a href="https://abcnews.com/538/538s-2024-presidential-election-forecast-works/story?id=110867585" target="_blank" rel="noopener">scales
+        each poll's effective sample size</a> by pollster quality.)</span></div>
+
+        <h3>3&nbsp;&middot;&nbsp;Calibration from history, and the forecast</h3>
+        <p>Using final-stretch polls vs. actual results in 2012/2017/2022, we regress squared
+        poll error on horizon <i>h</i> (days to the election). A random walk implies variance
+        growing linearly in time:</p>
+        <div class="eq">Var(&nbsp;poll error at horizon <i>h</i>&nbsp;) &#8776;
+          <i>a</i><sup>2</sup> + <i>c</i>&thinsp;<i>h</i>.</div>
+        <p>The intercept gives the irreducible <b>election-day poll error</b>
+        <i>a</i> &#8776; 0.038 (about 3.8 points); the slope gives the daily drift
+        &radic;<i>c</i> &#8776; 0.0020 (0.2 pt/day). To forecast, we take the latent state at
+        the last poll week <i>w</i><sup>&#8727;</sup> and add (i) random-walk drift to election
+        day and (ii) the systematic election-day miss &mdash; the piece that does <i>not</i>
+        shrink with more polls:</p>
+        <div class="box"><span class="term">Forecast-horizon spread</span> How wrong are polls as a
+        function of how far out they are? Two things widen the forecast toward election day: opinion is
+        still drifting (the random-walk term, growing like &radic;time), and even final polls miss by a
+        bit in a correlated, national way (the <i>a</i> term, which never shrinks no matter how many
+        polls you average). Measuring both from past cycles is how the model knows to be wide now and
+        tighter in April. <span class="cite">(The
+        <a href="https://hdsr.mitpress.mit.edu/pub/nw1dzd02" target="_blank" rel="noopener">Economist
+        model</a> adds an explicit election-day polling-error term for exactly this reason, and
+        forecasters such as
+        <a href="https://www.natesilver.net/p/silver-bulletin-polling-average-methodology" target="_blank" rel="noopener">Nate
+        Silver</a> likewise widen their intervals when polls are sparse or inconsistent, so the model
+        isn't overconfident.)</span></div>
+        <div class="eq"><i>&beta;&#771;<sub>c</sub></i> =
+          <i>&beta;<sub>c,w<sup>&#8727;</sup></sub></i>
+          + <i>s</i><sub>rw</sub>&thinsp;&radic;(<i>W</i>&minus;<i>w</i><sup>&#8727;</sup>)&thinsp;<i>&zeta;<sub>c</sub></i>
+          + <i>s</i><sub>err</sub>&thinsp;<i>&upsilon;<sub>c</sub></i>,
+          &nbsp;&nbsp; <i>&zeta;<sub>c</sub></i>, <i>&upsilon;<sub>c</sub></i> &sim; Normal(0,1).</div>
+        <p>The share for a chosen line-up <i>&#119964;</i> is the softmax over just those
+        candidates, <i>&pi;<sub>c</sub></i> = softmax<sub><i>&#119964;</i></sub>(<i>&beta;&#771;</i>)<sub><i>c</i></sub>.
+        The drift/error sds are the historical quantities mapped from the share scale to the
+        latent scale by <i>&kappa;</i> = 1&frasl;[<i>&pi;</i>(1&minus;<i>&pi;</i>)] &#8776; 5.9
+        (evaluated at a typical <i>&pi;</i> &#8776; 0.22), i.e.
+        <i>s</i><sub>rw</sub> = &radic;<i>c</i> &middot; &radic;7 &middot; <i>&kappa;</i> and
+        <i>s</i><sub>err</sub> = <i>a</i> &middot; <i>&kappa;</i>.</p>
+
+        <h3>4&nbsp;&middot;&nbsp;Runoff: a Bradley&ndash;Terry model</h3>
+        <p>Each candidate has a latent runoff <b>strength</b> <i>s<sub>c</sub></i>. A
+        head-to-head poll of <i>A</i> vs. <i>B</i> gives <i>A</i>'s expected share as</p>
+        <div class="box"><span class="term">Bradley&ndash;Terry model</span> A classic
+        <a href="https://en.wikipedia.org/wiki/Bradley%E2%80%93Terry_model" target="_blank" rel="noopener">paired-comparison
+        model</a> (Bradley &amp; Terry, 1952): give every candidate one &ldquo;strength&rdquo;, and the
+        chance <i>A</i> beats <i>B</i> depends on the difference in strengths. It pools sparse
+        head-to-heads and predicts unpolled pairings by transitivity &mdash; if <i>A</i> beats <i>C</i>
+        handily and <i>B</i> only narrowly, we can estimate <i>A</i> vs. <i>B</i>.</div>
+        <div class="box"><span class="term">Overdispersion / beta-binomial</span>
+        <a href="https://en.wikipedia.org/wiki/Overdispersion" target="_blank" rel="noopener">Overdispersion</a>
+        means more spread than a plain binomial would predict. Modelling the count <i>k<sub>A</sub></i>
+        with a
+        <a href="https://en.wikipedia.org/wiki/Beta-binomial_distribution" target="_blank" rel="noopener">beta-binomial</a>
+        (concentration <i>&#966;</i>) lets runoff polls disagree a little more than coin-flip sampling
+        implies &mdash; a standard, gentle fix for survey counts.</div>
+        <div class="eq"><i>p</i> = logit<sup>&minus;1</sup>(<i>s<sub>A</sub></i> &minus; <i>s<sub>B</sub></i>),
+          &nbsp;&nbsp;
+          <i>k<sub>A</sub></i> &sim; BetaBinomial(<i>n&#771;</i>,&thinsp;<i>p&#966;</i>,&thinsp;(1&minus;<i>p</i>)<i>&#966;</i>),</div>
+        <p>with <i>s<sub>c</sub></i> &sim; Normal(0, 1.5<sup>2</sup>) (soft sum-to-zero) and
+        over-dispersion <i>&#966;</i> &sim; Gamma(2, 0.05). Bradley&ndash;Terry pools sparse
+        matchup polls and predicts <i>any</i> pairing through shared opponents. For a runoff
+        between the first-round top two <i>X</i>, <i>Y</i>, the winner probability adds a
+        horizon inflation
+        <i>&sigma;</i><sub>2</sub> = &radic;(<i>s</i><sub>err</sub><sup>2</sup> + <i>s</i><sub>rw,day</sub><sup>2</sup>&thinsp;<i>H</i>):</p>
+        <div class="eq">P(<i>X</i> wins) = logit<sup>&minus;1</sup>(<i>s<sub>X</sub></i> &minus; <i>s<sub>Y</sub></i>
+          + <i>&sigma;</i><sub>2</sub>&thinsp;<i>&xi;</i>),
+          &nbsp;&nbsp; <i>&xi;</i> &sim; Normal(0,1).</div>
+        <div class="box"><span class="term">Does Bardella tell us about Le&nbsp;Pen?</span> Because each
+        candidate has a <i>single</i> runoff strength, a poll of Philippe vs.&nbsp;Bardella sharpens
+        <i>s</i><sub>Philippe</sub>, which in turn tightens the <i>predicted</i> Philippe vs.&nbsp;Le&nbsp;Pen
+        result &mdash; information flows through the shared opponent (Bradley&ndash;Terry transitivity).
+        In the <b>first round</b>, by contrast, Le&nbsp;Pen and Bardella are separate latent series with
+        no party-level pooling; they become comparable only because they face the same opponents, so
+        Bardella's numbers barely move Le&nbsp;Pen's first-round share directly.</div>
+
+        <h3>5&nbsp;&middot;&nbsp;What the dots are</h3>
+        <p>One <b>simulated election</b> = one posterior draw of {<i>&beta;&#771;</i>, <i>s</i>}
+        plus fresh drift/error/runoff noise: draw the first-round shares
+        <i>&pi;</i>, take the top two, sample the runoff winner (Bernoulli at P(<i>X</i> wins)).
+        Repeating over the thinned posterior gives the posterior predictive distribution you
+        see &mdash; the trajectory bands are per-week quantiles of <i>&pi;</i>, and each dot in
+        the &ldquo;who wins&rdquo; and &ldquo;1,000 simulations&rdquo; panels is one such draw.</p>
+        <div class="box"><span class="term">Posterior predictive distribution</span> After fitting, we
+        don't report one number; we draw many plausible worlds consistent with the data and priors &mdash;
+        the
+        <a href="https://en.wikipedia.org/wiki/Posterior_predictive_distribution" target="_blank" rel="noopener">posterior
+        predictive distribution</a>. Each dot is one such world (one simulated election); the spread of
+        the dots <i>is</i> the forecast's uncertainty.</div>
+
+        <h3>6&nbsp;&middot;&nbsp;Assumptions &amp; limitations</h3>
+        <ul>
+          <li><b>Shares among expressed votes.</b> Turnout and undecideds are not modelled;
+            reported shares are renormalised over modelled candidates, i.e. undecideds are
+            assumed to split like decideds.</li>
+          <li><b>The line-up is a scenario</b>, chosen by you, not inferred.</li>
+          <li><b>Softmax independence (IIA).</b> Two candidates never polled together are
+            placed on a common scale only through shared opponents; for true substitutes
+            (e.g. the two RN nominees) the softmax would overstate their combined support,
+            which is why they are mutually exclusive in the picker.</li>
+          <li><b>Runoff uses posterior-mean strengths</b> plus horizon inflation, not the full
+            strength posterior &mdash; a modest understatement of runoff uncertainty.</li>
+          <li><b>Polls-only.</b> No economic or approval &ldquo;fundamentals&rdquo;.</li>
+        </ul>
+
+        <h3>Calibrated quantities</h3>
+        <table class="method-tbl">
+          <tr><th>quantity</th><th>symbol</th><th>value</th></tr>
+          <tr><td>election-day poll error (sd)</td><td><i>a</i></td><td>3.8 pts</td></tr>
+          <tr><td>opinion drift (random walk)</td><td>&radic;<i>c</i></td><td>0.20 pt/day</td></tr>
+          <tr><td>pollster house-effect sd</td><td><i>&sigma;<sub>house</sub></i></td><td>0.9 pt</td></tr>
+          <tr><td>design effect</td><td><i>d</i><sub>eff</sub></td><td>2.2</td></tr>
+          <tr><td>weekly RW step (fixed, smoothing)</td><td><i>&sigma;</i></td><td>0.045 (latent)</td></tr>
+          <tr><td>share&rarr;latent conversion</td><td><i>&kappa;</i></td><td>&#8776; 5.9</td></tr>
+        </table>
+        <p class="method-foot">Full source (R + Stan + this page) accompanies the model;
+        calibration is produced by <code>R/03_calibrate.R</code>, the fits by
+        <code>04&ndash;05</code>, and the shipped draws by <code>R/08_export_draws.R</code>.</p>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>Model: weekly random-walk state-space aggregation of first-round polls
+        (softmax over the candidates in each poll, with pollster house effects),
+        chained to a Bradley&ndash;Terry runoff model. Priors for opinion drift,
+        poll error and house effects are calibrated on the 2012/2017/2022
+        cycles. Shares are among expressed votes; turnout and undecideds are not
+        modelled separately. Built with R, Stan and D3.</p>
+    </footer>
+  </main>
+  <script src="lib/d3.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
