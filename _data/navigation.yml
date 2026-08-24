@@ -18,8 +18,8 @@ main:
   - title: "CV"
     url: /cv/
     
-  - title: "2027 Forecast"
-    url: /forecast/
+  # - title: "2027 Forecast"
+  #   url: /forecast/
 
     
   # - title: "PhD Admission Timeline"
