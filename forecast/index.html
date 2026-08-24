@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>France 2027 — Presidential Election Forecast</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Google Analytics (same GA4 property as the main site; live domain only) -->
+  <script>
+    if (location.hostname.endsWith("martindevaux.com")) {
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = function () { dataLayer.push(arguments); };
+      var ga = document.createElement("script");
+      ga.async = true;
+      ga.src = "https://www.googletagmanager.com/gtag/js?id=G-XMDYHC5Y89";
+      document.head.appendChild(ga);
+      gtag("js", new Date());
+      gtag("config", "G-XMDYHC5Y89");
+    }
+  </script>
 </head>
 <body>
   <main id="app">

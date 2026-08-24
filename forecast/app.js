@@ -363,11 +363,13 @@ function renderAll(data) {               // recompute: redraw all now
   clearCharts();
   winDots(DATA); fanChart(DATA); simDots(DATA); matchups(DATA);
 }
+let lastW = window.innerWidth;
 window.addEventListener("resize", debounce(() => {
-  if (!DATA) return;
-  d3.select("#windots").select("svg").remove(); winDots(DATA, false);
-  d3.select("#fan").select("svg").remove(); fanChart(DATA, false);
-  d3.select("#sim").select("svg").remove(); simDots(DATA, false);
+  // only reflow on WIDTH change — ignore height-only resizes (e.g. the mobile
+  // address bar showing/hiding while scrolling). Charts self-clear, so no dupes.
+  if (!DATA || window.innerWidth === lastW) return;
+  lastW = window.innerWidth;
+  winDots(DATA, false); fanChart(DATA, false); simDots(DATA, false); matchups(DATA, false);
 }, 200));
 function inView(node, cb) {
   const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.disconnect(); cb(); } }),
@@ -397,6 +399,7 @@ function winDots(data, animate = true) {
   const Wd = el.clientWidth || 860, rowH = 30, m = { top: 10, right: 54, bottom: 10, left: 168 };
   const H = m.top + m.bottom + rows.length * rowH;
   const x0 = m.left + 10, maxW = Wd - m.right - x0;
+  d3.select("#windots").selectAll("svg").remove();      // idempotent: never duplicate
   const svg = d3.select("#windots").append("svg").attr("width", Wd).attr("height", H);
   const per = 1100 / Math.max(nS, 1);     // dots pop in, in simulation order
   let winHi = null;
@@ -455,6 +458,7 @@ function fanChart(data, animate = true) {
   let ymax = 0; names.forEach(n => ymax = Math.max(ymax, d3.max(data.round1.trajectory[n].p90)));
   const y = d3.scaleLinear().domain([0, Math.ceil(ymax / 5) * 5 + 2]).range([H - m.bottom, m.top]);
 
+  d3.select("#fan").selectAll("svg").remove();          // idempotent: never duplicate
   const svg = d3.select("#fan").append("svg").attr("width", W).attr("height", H);
   const gx = Math.max(m.left, Math.min(W - m.right, x(gen)));
   svg.append("rect").attr("x", gx).attr("y", m.top).attr("width", (W - m.right) - gx)
@@ -552,6 +556,7 @@ function simDots(data, animate = true) {
   const W = el.clientWidth || 860, rowH = 40, m = { top: 8, right: 16, bottom: 26, left: 168 };
   const H = m.top + m.bottom + means.length * rowH;
   const x = d3.scaleLinear().domain([0, Math.ceil(d3.max(draws.flat()) / 5) * 5]).range([m.left, W - m.right]);
+  d3.select("#sim").selectAll("svg").remove();          // idempotent: never duplicate
   const svg = d3.select("#sim").append("svg").attr("width", W).attr("height", H);
   svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`).call(d3.axisBottom(x).ticks(6).tickFormat(d => d + "%"));
   x.ticks(6).forEach(t => svg.append("line").attr("class", "gridline").attr("x1", x(t)).attr("x2", x(t)).attr("y1", m.top).attr("y2", H - m.bottom));
