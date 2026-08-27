@@ -33,7 +33,8 @@ let MODEL = null, UNIV = [], NAMES = [], SELECTED = new Set();
 // vote-transfer parameters (editable in the Parameters panel)
 let TRANSFER = true, P_EXP = 2, D0 = 30, POS = {}, INFERRED = {};
 let TRANSFER_ESTIMATED = true;   // use estimated transfers where data-backed, else inverse-distance
-let RUNOFF_INFL = 0.3;   // runoff horizon uncertainty (logit sd); set from model
+let RUNOFF_MULT = 1.0;   // multiplier on the per-draw runoff sigma2 (slider; base is calibration-driven)
+let RW = [], PE = [], INFL = [];  // per-calibration-draw arrays: drift sd, election-day error sd, runoff sigma2
 
 // ---- seeded RNG (stable results across re-renders) ----
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -63,7 +64,7 @@ function initModel(model) {
   MODEL = model; UNIV = model.candidates; NAMES = UNIV.map(c => c.name);
   SELECTED = new Set(model.default_lineup);
   UNIV.forEach(c => { POS[c.name] = c.pos; INFERRED[c.name] = !!c.runoff_inferred; });
-  RUNOFF_INFL = model.runoff.infl;
+  RW = model.forward.rw_week_sd; PE = model.forward.poll_error; INFL = model.runoff.infl;
   buildPicker();
   buildParams();
   d3.select("#pick-reset").on("click", () => {
@@ -162,7 +163,7 @@ function buildParams() {
   te.append("span").text("Use estimated transfers where data-backed (else inverse-distance)");
   slider(g, "Transfer locality  p  (higher = more local)", 0.5, 4, 0.1, () => P_EXP, v => P_EXP = v);
   slider(g, "Abstention distance  d₀  (higher = fewer stay home)", 5, 60, 1, () => D0, v => D0 = v);
-  slider(g, "Runoff uncertainty  σ₂  (higher = closer to a coin-flip)", 0, 0.8, 0.02, () => RUNOFF_INFL, v => RUNOFF_INFL = v);
+  slider(g, "Runoff uncertainty  ×σ₂  (scales the calibrated runoff spread)", 0, 2.5, 0.1, () => RUNOFF_MULT, v => RUNOFF_MULT = v);
 
   const p = d3.select("#param-positions").html("");
   // ordering is fixed: each slider is clamped between its neighbours, so the
@@ -185,7 +186,7 @@ function buildParams() {
   });
 
   d3.select("#params-reset").on("click", () => {
-    TRANSFER = true; P_EXP = 2; D0 = 30; RUNOFF_INFL = MODEL.runoff.infl;
+    TRANSFER = true; P_EXP = 2; D0 = 30; RUNOFF_MULT = 1.0;
     UNIV.forEach(c => POS[c.name] = c.pos);
     buildParams(); update(false);
   });
@@ -221,7 +222,9 @@ function computeView(sel) {
   seedReset();
   const beta = MODEL.latent.beta, Dt = MODEL.latent.n_draws;
   const lw = MODEL.forward.last_week, W = MODEL.forward.election_week;
-  const rw = MODEL.forward.rw_week_sd, pe = MODEL.forward.poll_error, infl = RUNOFF_INFL;
+  // per-draw calibration (integrate over calibration-parameter uncertainty)
+  const rwOf = d => RW[d % RW.length], peOf = d => PE[d % PE.length];
+  const inflOf = d => INFL[d % INFL.length] * RUNOFF_MULT;
   const L = sel.length;
   const meta = n => UNIV[NAMES.indexOf(n)];
   const isRN = n => meta(n).party === "RN";
@@ -303,7 +306,7 @@ function computeView(sel) {
       const latR = new Array(LR);
       for (let i = 0; i < LR; i++) {
         const c = Ridx[i];
-        latR[i] = w <= lw ? beta[d][c][w - 1] : beta[d][c][lw - 1] + rw * Math.sqrt(w - lw) * zf[d][i];
+        latR[i] = w <= lw ? beta[d][c][w - 1] : beta[d][c][lw - 1] + rwOf(d) * Math.sqrt(w - lw) * zf[d][i];
       }
       const sh = project(softmax(latR));
       for (let s = 0; s < L; s++) col[s][d] = sh[s] * 100;
@@ -326,7 +329,7 @@ function computeView(sel) {
     for (let rep = 0; rep < REPS; rep++) {
       const latR = new Array(LR);
       for (let i = 0; i < LR; i++)
-        latR[i] = beta[d][Ridx[i]][lw - 1] + rw * Math.sqrt(W - lw) * randn() + pe * randn();
+        latR[i] = beta[d][Ridx[i]][lw - 1] + rwOf(d) * Math.sqrt(W - lw) * randn() + peOf(d) * randn();
       const sh = project(softmax(latR));
       for (let s = 0; s < L; s++) perCand[s][e] = sh[s] * 100;
       let i1 = 0, i2 = 1; if (sh[i2] > sh[i1]) { i1 = 1; i2 = 0; }
@@ -336,7 +339,7 @@ function computeView(sel) {
       // pA is this simulation's runoff share for A (Bradley-Terry + horizon
       // noise); the winner is simply whoever clears 50%, so a dot's position and
       // its colour always agree.
-      const pA = 1 / (1 + Math.exp(-((strengthAt(A, d) - strengthAt(B, d)) + infl * randn())));
+      const pA = 1 / (1 + Math.exp(-((strengthAt(A, d) - strengthAt(B, d)) + inflOf(d) * randn())));
       const win = pA > 0.5 ? i1 : i2;
       pWin[win] += 1;
       sims[e] = { s: Array.from(sh, v => r2(v * 100)), a: A, b: B, pa: r3(pA), w: sel[win] };

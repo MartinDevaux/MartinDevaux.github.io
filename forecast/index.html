@@ -226,17 +226,23 @@
         each poll's effective sample size</a> by pollster quality.)</span></div>
 
         <h3>3&nbsp;&middot;&nbsp;Calibration from history, and the forecast</h3>
-        <p>Using final-stretch polls vs. actual results in 2012/2017/2022, we regress squared
-        poll error on horizon <i>h</i> (days to the election). A random walk implies variance
-        growing linearly in time:</p>
+        <p>Using polls vs. actual results in 2012/2017/2022, we estimate how squared poll error
+        grows with horizon <i>h</i> (days to the election). A random walk implies variance growing
+        linearly in time:</p>
         <div class="eq">Var(&nbsp;poll error at horizon <i>h</i>&nbsp;) &#8776;
-          <i>a</i><sup>2</sup> + <i>c</i>&thinsp;<i>h</i>.</div>
-        <p>The intercept gives the irreducible <b>election-day poll error</b>
-        <i>a</i> &#8776; 0.038 (about 3.8 points); the slope gives the daily drift
-        &radic;<i>c</i> &#8776; 0.0020 (0.2 pt/day). To forecast, we take the latent state at
-        the last poll week <i>w</i><sup>&#8727;</sup> and add (i) random-walk drift to election
-        day and (ii) the systematic election-day miss &mdash; the piece that does <i>not</i>
-        shrink with more polls:</p>
+          <i>a</i><sup>2</sup> + <i>c</i>&thinsp;<i>h</i>,</div>
+        <p>where <i>a</i> is the irreducible <b>election-day poll error</b> and &radic;<i>c</i> the
+        daily drift. We fit this <b>per cycle, weighting each election equally</b> &mdash; a national
+        polling miss is one correlated event, not thousands of independent poll&times;candidate points,
+        so one heavily-polled cycle shouldn't dominate. The three cycles genuinely disagree
+        (election-day misses of roughly <b>1, 3 and 5 points</b>), so rather than plug in a single
+        number we treat 2027 as a <i>new draw</i>: every simulation samples (<i>a</i>, &radic;<i>c</i>)
+        from a heavy-tailed predictive across the three cycles (central election-day error &#8776;
+        3&nbsp;points, drift &#8776; 0.2&nbsp;pt/day). This propagates the real
+        &ldquo;only-three-elections&rdquo; uncertainty instead of pretending the calibration curve is
+        known. To forecast, we take the latent state at the last poll week <i>w</i><sup>&#8727;</sup>
+        and add (i) random-walk drift to election day and (ii) the systematic election-day miss &mdash;
+        the piece that does <i>not</i> shrink with more polls:</p>
         <div class="box"><span class="term">Forecast-horizon spread</span> How wrong are polls as a
         function of how far out they are? Two things widen the forecast toward election day: opinion is
         still drifting (the random-walk term, growing like &radic;time), and even final polls miss by a
@@ -325,16 +331,22 @@
             placed on a common scale only through shared opponents; for true substitutes
             (e.g. the two RN nominees) the softmax would overstate their combined support,
             which is why they are mutually exclusive in the picker.</li>
-          <li><b>Runoff uses posterior-mean strengths</b> plus horizon inflation, not the full
-            strength posterior &mdash; a modest understatement of runoff uncertainty.</li>
+          <li><b>Independent election-day shocks.</b> The election-day miss is applied to each
+            candidate independently (in latent space, before the softmax), not as a correlated
+            national factor. Checked against history: at the current horizon the model's
+            candidate-<i>gap</i> errors are, if anything, slightly <i>narrower</i> than the 2012/2017/2022
+            record, so it is not over-stating rank reversals &mdash; a correlated-factor version is
+            deferred rather than needed, given only three calibration elections.</li>
+          <li><b>Three-cycle calibration.</b> The forecast-uncertainty parameters rest on just three
+            elections; their own uncertainty is propagated (§3), but three is not many.</li>
           <li><b>Polls-only.</b> No economic or approval &ldquo;fundamentals&rdquo;.</li>
         </ul>
 
         <h3>Calibrated quantities</h3>
         <table class="method-tbl">
           <tr><th>quantity</th><th>symbol</th><th>value</th></tr>
-          <tr><td>election-day poll error (sd)</td><td><i>a</i></td><td>3.8 pts</td></tr>
-          <tr><td>opinion drift (random walk)</td><td>&radic;<i>c</i></td><td>0.20 pt/day</td></tr>
+          <tr><td>election-day poll error (sd)</td><td><i>a</i></td><td>&#8776; 3 pts (central; drawn per sim)</td></tr>
+          <tr><td>opinion drift (random walk)</td><td>&radic;<i>c</i></td><td>0.19 pt/day</td></tr>
           <tr><td>pollster house-effect sd</td><td><i>&sigma;<sub>house</sub></i></td><td>0.9 pt</td></tr>
           <tr><td>design effect</td><td><i>d</i><sub>eff</sub></td><td>2.2</td></tr>
           <tr><td>weekly RW step (fixed, smoothing)</td><td><i>&sigma;</i></td><td>0.045 (latent)</td></tr>
