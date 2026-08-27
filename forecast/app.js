@@ -191,8 +191,15 @@ function buildParams() {
   });
 }
 
+function scenarioActive(sel) {
+  // the field differs from the default line-up => withdrawal/swap assumptions are in play
+  const def = new Set(MODEL.default_lineup);
+  return sel.length !== def.size || sel.some(n => !def.has(n));
+}
 function update(first) {
   const sel = NAMES.filter(n => SELECTED.has(n));
+  const banner = document.getElementById("scenario-banner");
+  if (banner) banner.hidden = !(TRANSFER && scenarioActive(sel));
   if (sel.length < 2) {
     d3.select("#pick-warning").style("display", null);
     clearCharts();

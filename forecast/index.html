@@ -37,6 +37,13 @@
         <button id="pick-reset" class="linklike">reset to default</button></p>
       <div id="candidate-picker"></div>
       <p id="pick-warning" class="warn" style="display:none">Select at least two candidates.</p>
+      <div id="scenario-banner" class="scenario-note" hidden>
+        <b>Scenario assumption &mdash; not a poll-driven prediction.</b> You've changed the field from
+        the default. The votes of candidates you remove are redistributed to those still running:
+        <b>estimated from head-to-head polls</b> where we have them (Attal, Philippe), and by an explicit
+        <b>inverse-distance assumption</b> otherwise (tune it under <i>Parameters &amp; assumptions</i>).
+        The poll-derived part is the current standing of the candidates who <i>are</i> running.
+      </div>
     </section>
 
     <section class="panel">
@@ -55,6 +62,16 @@
           between its neighbours, so you calibrate <i>distances</i>, not who sits left of whom.</p>
         <div id="param-positions"></div>
       </div>
+    </section>
+
+    <section class="panel">
+      <h2>How to read this forecast</h2>
+      <ul class="note howto">
+        <li><b>Polls</b> tell us where the candidates appear to stand today.</li>
+        <li><b>Past French elections</b> tell us how uncertain that estimate should become by election day.</li>
+        <li><b>Candidate withdrawals are scenarios, not predictions</b> &mdash; they layer an explicit
+          assumption about where a departing candidate's voters go on top of the poll-driven forecast.</li>
+      </ul>
     </section>
 
     <section class="panel">
@@ -98,24 +115,30 @@
         &#9656;&nbsp; Methodology &amp; model details</button>
       <div id="method-body" class="method-body" hidden>
 
-        <p>The forecast is a <b>Bayesian poll-aggregation model</b> in the tradition of
+        <p>The forecast is a <b>Bayesian poll-aggregation model</b> in the tradition of Nate Silver's
         <a href="https://fivethirtyeight.com" target="_blank" rel="noopener">FiveThirtyEight</a>
         and <a href="https://hdsr.mitpress.mit.edu/pub/nw1dzd02" target="_blank" rel="noopener">the
         <i>Economist</i>'s 2020 model</a> (Gelman, Morris &amp; Heidemanns), which in turn build on
-        the dynamic state-space election forecasting of
         <a href="https://votamatic.org/wp-content/uploads/2013/07/Linzer-JASA13.pdf" target="_blank" rel="noopener">Linzer (2013)</a>.
-        We adapt that lineage to
-        France's two-round, many-candidate system. It has two stages &mdash; a first-round
-        vote-share model and a runoff model &mdash; and every prior is
-        <b>calibrated on the 2012&ndash;2022 cycles</b>, so the uncertainty is empirically grounded
-        rather than assumed. Everything is fit in
-        <a href="https://mc-stan.org" target="_blank" rel="noopener">Stan</a>
-        (first round: 4 chains, R&#770; &#8776; 1.00), and this page recomputes the forecast for any
-        chosen line-up directly from the posterior draws.</p>
+        I wanted to adapt these to
+        France's two-round system. In this system, many candidates enter the first round and then, either (i) one candidate
+        receives an absolute majority of the votes and is elected, or (ii) the two candidates who receive the highest
+        number of votes in the first round advance to the runoff, which takes place two weeks later.
+        My model has two stages: a first-round
+        vote-share model and a runoff model. It is a Bayesian model, which requires setting priors. Some are deliberate
+        regularisation choices (e.g. the fixed random-walk step and the runoff-strength prior); the key
+        <i>forecast-uncertainty</i> parameters &mdash; how fast uncertainty grows toward election day, and the
+        irreducible election-day poll error &mdash; are calibrated on the 2012, 2017, and 2022 elections. Three cycles
+        is not a lot of history, so these are estimated with real uncertainty. Everything is fit in Stan. This page
+        recomputes the forecast for the candidate line-up you select from the posterior draws.</p>
+        
+        <p>This is work in progress and I appreciate your feedback. Credits (but no responsibility for my errors) are due to
+        Ronald Neath, who taught the Bayesian Statistics course I took in the Fall of 2023. I used LLMs to think through part of the modeling,
+        and for a lot of the dynamic visualization (I have no prior D3.js expertise).</p>
 
         <h3>1&nbsp;&middot;&nbsp;First round: latent vote intention as a random walk</h3>
-        <p>For candidates <i>c</i> = 1&hellip;<i>C</i> over weeks <i>w</i> = 1&hellip;<i>W</i>
-        (with <i>W</i> the election week), a latent support <i>&beta;<sub>c,w</sub></i>
+        <p>Consider candidates <i>c</i> = 1,&hellip;,<i>C</i> over weeks <i>w</i> = 1,&hellip;,<i>W</i>
+        (where <i>W</i> is the election week). <i>&beta;<sub>c,w</sub></i> is the latent support of candidate <i>c</i> in week <i>w</i>,
         on an unbounded (log-odds&ndash;like) scale follows a Gaussian random walk:</p>
         <div class="box"><span class="term">Latent / log-odds scale</span> Vote shares live between
         0 and 1, which is awkward to model directly. We instead track an unconstrained number for each
@@ -261,12 +284,14 @@
         <p>with <i>s<sub>c</sub></i> &sim; Normal(0, 1.5<sup>2</sup>) (soft sum-to-zero) and
         over-dispersion <i>&#966;</i> &sim; Gamma(2, 0.05). Bradley&ndash;Terry pools sparse
         matchup polls and predicts <i>any</i> pairing through shared opponents. For a runoff
-        between the first-round top two <i>X</i>, <i>Y</i>, the winner probability adds a
-        horizon inflation
-        <i>&sigma;</i><sub>2</sub> = &radic;(<i>s</i><sub>err</sub><sup>2</sup> + <i>s</i><sub>rw,day</sub><sup>2</sup>&thinsp;<i>H</i>):</p>
-        <div class="eq">P(<i>X</i> wins) = logit<sup>&minus;1</sup>(<i>s<sub>X</sub></i> &minus; <i>s<sub>Y</sub></i>
+        between the first-round top two <i>X</i>, <i>Y</i>, we draw each strength from its
+        <i>full posterior</i> and add a horizon inflation
+        <i>&sigma;</i><sub>2</sub> = &radic;(<i>s</i><sub>err</sub><sup>2</sup> + <i>s</i><sub>rw,day</sub><sup>2</sup>&thinsp;<i>H</i>)
+        to get <i>X</i>'s second-round share; <i>X</i> wins the runoff when that share clears &frac12;:</p>
+        <div class="eq"><i>p<sub>X</sub></i> = logit<sup>&minus;1</sup>(<i>s<sub>X</sub></i> &minus; <i>s<sub>Y</sub></i>
           + <i>&sigma;</i><sub>2</sub>&thinsp;<i>&xi;</i>),
-          &nbsp;&nbsp; <i>&xi;</i> &sim; Normal(0,1).</div>
+          &nbsp;&nbsp; <i>&xi;</i> &sim; Normal(0,1),
+          &nbsp;&nbsp; <i>X</i> wins &hArr; <i>p<sub>X</sub></i> &gt; &frac12;.</div>
         <div class="box"><span class="term">Does Bardella tell us about Le&nbsp;Pen?</span> Because each
         candidate has a <i>single</i> runoff strength, a poll of Philippe vs.&nbsp;Bardella sharpens
         <i>s</i><sub>Philippe</sub>, which in turn tightens the <i>predicted</i> Philippe vs.&nbsp;Le&nbsp;Pen
@@ -278,7 +303,8 @@
         <h3>5&nbsp;&middot;&nbsp;What the dots are</h3>
         <p>One <b>simulated election</b> = one posterior draw of {<i>&beta;&#771;</i>, <i>s</i>}
         plus fresh drift/error/runoff noise: draw the first-round shares
-        <i>&pi;</i>, take the top two, sample the runoff winner (Bernoulli at P(<i>X</i> wins)).
+        <i>&pi;</i>, take the top two, form their runoff share <i>p<sub>X</sub></i> and award the
+        win to whoever clears &frac12;.
         Repeating over the thinned posterior gives the posterior predictive distribution you
         see &mdash; the trajectory bands are per-week quantiles of <i>&pi;</i>, and each dot in
         the &ldquo;who wins&rdquo; and &ldquo;1,000 simulations&rdquo; panels is one such draw.</p>

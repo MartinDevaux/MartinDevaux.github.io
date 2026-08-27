@@ -31,6 +31,13 @@ body {
   font-size: 20px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em;
 }
 .note { color: var(--muted); font-size: 13.5px; margin: 0 0 16px; max-width: 640px; }
+.note.howto { max-width: 720px; }
+.note.howto li { margin: 3px 0; }
+.scenario-note {
+  max-width: 720px; margin: 4px 0 2px; padding: 10px 12px;
+  font-size: 13px; line-height: 1.5; color: #6b5a1e;
+  background: #fdf6e3; border: 1px solid #e7d9a8; border-left: 3px solid #d9a441; border-radius: 4px;
+}
 
 /* win probability bars */
 .winrow { display: grid; grid-template-columns: 168px 1fr 54px; align-items: center;

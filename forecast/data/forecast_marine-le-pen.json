@@ -7281,38 +7281,38 @@
     "Fabien Roussel": 0,
     "Nathalie Arthaud": 0,
     "Nicolas Dupont-Aignan": 0,
-    "Marine Le Pen": 0.657
+    "Marine Le Pen": 0.656
   },
   "round2": {
     "matchups": [
       {
         "a": "Édouard Philippe",
         "b": "Marine Le Pen",
-        "p_a_win": 0.495,
+        "p_a_win": 0.496,
         "freq": 0.491
       },
       {
         "a": "Jean-Luc Mélenchon",
         "b": "Marine Le Pen",
-        "p_a_win": 0.342,
+        "p_a_win": 0.341,
         "freq": 0.337
       },
       {
         "a": "Gabriel Attal",
         "b": "Marine Le Pen",
-        "p_a_win": 0.461,
+        "p_a_win": 0.462,
         "freq": 0.077
       },
       {
         "a": "Marine Le Pen",
         "b": "Raphaël Glucksmann",
-        "p_a_win": 0.571,
+        "p_a_win": 0.57,
         "freq": 0.074
       },
       {
         "a": "Édouard Philippe",
         "b": "Jean-Luc Mélenchon",
-        "p_a_win": 0.663,
+        "p_a_win": 0.664,
         "freq": 0.012
       },
       {
@@ -7330,7 +7330,7 @@
       "share_lo": 21.8292,
       "share_hi": 37.8236,
       "p_runoff": 0.9835,
-      "p_win": 0.6575
+      "p_win": 0.6565
     },
     {
       "candidate": "Édouard Philippe",
@@ -7338,7 +7338,7 @@
       "share_lo": 10.8228,
       "share_hi": 21.6769,
       "p_runoff": 0.5055,
-      "p_win": 0.2555
+      "p_win": 0.2558
     },
     {
       "candidate": "Jean-Luc Mélenchon",
@@ -7354,7 +7354,7 @@
       "share_lo": 7.0477,
       "share_hi": 14.7439,
       "p_runoff": 0.0775,
-      "p_win": 0.0235
+      "p_win": 0.0245
     },
     {
       "candidate": "Gabriel Attal",
@@ -7362,7 +7362,7 @@
       "share_lo": 7.0024,
       "share_hi": 14.9477,
       "p_runoff": 0.0792,
-      "p_win": 0.031
+      "p_win": 0.0308
     },
     {
       "candidate": "Bruno Retailleau",
