@@ -1,17 +1,11 @@
 {
-  "updated": "2026-08-24",
+  "updated": "2026-08-27",
   "scenarios": [
     {
       "id": "marine-le-pen",
       "label": "Marine Le Pen",
       "file": "forecast_marine-le-pen.json",
       "default": true
-    },
-    {
-      "id": "jordan-bardella",
-      "label": "Jordan Bardella",
-      "file": "forecast_jordan-bardella.json",
-      "default": false
     }
   ]
 }

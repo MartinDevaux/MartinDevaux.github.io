@@ -31,7 +31,8 @@ const hideTip = () => tip.style("opacity", 0);
 let COLOR = {}, STATS = {}, DATA = null;      // current rendered view
 let MODEL = null, UNIV = [], NAMES = [], SELECTED = new Set();
 // vote-transfer parameters (editable in the Parameters panel)
-let TRANSFER = true, P_EXP = 2, D0 = 30, POS = {};
+let TRANSFER = true, P_EXP = 2, D0 = 30, POS = {}, INFERRED = {};
+let TRANSFER_ESTIMATED = true;   // use estimated transfers where data-backed, else inverse-distance
 let RUNOFF_INFL = 0.3;   // runoff horizon uncertainty (logit sd); set from model
 
 // ---- seeded RNG (stable results across re-renders) ----
@@ -61,7 +62,7 @@ d3.json("data/model.json").then(initModel).catch(err =>
 function initModel(model) {
   MODEL = model; UNIV = model.candidates; NAMES = UNIV.map(c => c.name);
   SELECTED = new Set(model.default_lineup);
-  UNIV.forEach(c => { POS[c.name] = c.pos; });
+  UNIV.forEach(c => { POS[c.name] = c.pos; INFERRED[c.name] = !!c.runoff_inferred; });
   RUNOFF_INFL = model.runoff.infl;
   buildPicker();
   buildParams();
@@ -72,14 +73,17 @@ function initModel(model) {
 }
 
 // ---- candidate picker (structured choices) ----
-// Left / Centre / LR are multi-select; RN is mutually-exclusive radios (Le Pen
-// or Bardella, never both); "fixed" candidates are always in and locked.
+// Candidates sharing a `slot` are alternative occupants of ONE voter pool (they
+// are never co-polled), so picking one deselects its slot-mates. LR is a single
+// slot; the Left group mixes the free Greens with the exclusive socialist pool
+// (Glucksmann / Hollande / Faure). The centre requires at least one candidate.
+// "fixed" candidates (incl. Le Pen) are always in and not shown.
 const ROLE_GROUPS = [
   { role: "left",   title: "Left (choose any)" },
-  { role: "centre", title: "Centre (choose any)" },
-  { role: "lr",     title: "Les Républicains" },
-  { role: "rn",     title: "Rassemblement national", radio: true }
+  { role: "centre", title: "Centre (choose one or both)" },
+  { role: "lr",     title: "Les Républicains (choose one)" }
 ];
+const CENTRE_NAMES = () => UNIV.filter(c => c.role === "centre").map(c => c.name);
 const fixedNames = () => UNIV.filter(c => c.role === "fixed").map(c => c.name);
 
 function buildPicker() {
@@ -90,11 +94,12 @@ function buildPicker() {
     const col = box.append("div").attr("class", "pbloc");
     col.append("div").attr("class", "pbloc-h").text(g.title);
     grp.forEach(c => {
-      const lab = col.append("label").attr("class", "pcand");
-      lab.append("input").attr("class", "optcheck")
-        .attr("type", g.radio ? "radio" : "checkbox")
-        .attr("name", g.radio ? "rn-choice" : null)
+      const lab = col.append("label").attr("class", "pcand")
+        .classed("altslot", !!c.slot);
+      if (c.slot) lab.attr("title", "Alternative for one voter pool — picking this deselects its slot-mates");
+      lab.append("input").attr("class", "optcheck").attr("type", "checkbox")
         .attr("data-name", c.name)
+        .attr("data-slot", c.slot || null)
         .property("checked", SELECTED.has(c.name))
         .on("change", onPick);
       lab.classed("off", !SELECTED.has(c.name));
@@ -102,19 +107,23 @@ function buildPicker() {
       lab.append("span").text(c.name);
     });
   });
-  const fixed = UNIV.filter(c => c.role === "fixed");
-  if (fixed.length) {
-    const col = box.append("div").attr("class", "pbloc");
-    col.append("div").attr("class", "pbloc-h").text("Always included");
-    fixed.forEach(c => {
-      const lab = col.append("label").attr("class", "pcand locked");
-      lab.append("input").attr("type", "checkbox").property("checked", true).property("disabled", true);
-      lab.append("span").attr("class", "pdot").style("background", c.color);
-      lab.append("span").text(c.name);
-    });
-  }
 }
 function onPick() {
+  const name = this.getAttribute("data-name");
+  // centre must never be empty: block unticking the last remaining centrist
+  if (!this.checked && CENTRE_NAMES().includes(name)) {
+    const anyCentre = d3.selectAll("#candidate-picker input.optcheck").nodes()
+      .some(el => el.checked && CENTRE_NAMES().includes(el.getAttribute("data-name")));
+    if (!anyCentre) { this.checked = true; return; }
+  }
+  // slot exclusivity: selecting one occupant deselects its slot-mates
+  const slot = this.getAttribute("data-slot");
+  if (slot && this.checked) {
+    const self = this;
+    d3.selectAll('#candidate-picker input.optcheck[data-slot="' + slot + '"]').each(function () {
+      if (this !== self) this.checked = false;
+    });
+  }
   SELECTED = new Set(fixedNames());
   d3.selectAll("#candidate-picker input.optcheck").each(function () {
     if (this.checked) SELECTED.add(this.getAttribute("data-name"));
@@ -147,6 +156,10 @@ function buildParams() {
   t.append("input").attr("type", "checkbox").property("checked", TRANSFER)
     .on("change", function () { TRANSFER = this.checked; update(false); });
   t.append("span").text("Model directional vote transfer when a candidate drops out");
+  const te = g.append("label").attr("class", "pcand");
+  te.append("input").attr("type", "checkbox").property("checked", TRANSFER_ESTIMATED)
+    .on("change", function () { TRANSFER_ESTIMATED = this.checked; update(false); });
+  te.append("span").text("Use estimated transfers where data-backed (else inverse-distance)");
   slider(g, "Transfer locality  p  (higher = more local)", 0.5, 4, 0.1, () => P_EXP, v => P_EXP = v);
   slider(g, "Abstention distance  d₀  (higher = fewer stay home)", 5, 60, 1, () => D0, v => D0 = v);
   slider(g, "Runoff uncertainty  σ₂  (higher = closer to a coin-flip)", 0, 0.8, 0.02, () => RUNOFF_INFL, v => RUNOFF_INFL = v);
@@ -206,9 +219,10 @@ function computeView(sel) {
   const meta = n => UNIV[NAMES.indexOf(n)];
   const isRN = n => meta(n).party === "RN";
   const inSel = new Set(sel);
-  // per-draw runoff strengths: propagate posterior uncertainty where we have
-  // runoff data; candidates without it stay at a neutral strength of 0.
-  const SDR = {}; UNIV.forEach(c => { if (c.sdraws) SDR[c.name] = c.sdraws; });
+  // per-draw runoff strengths: every candidate ships draws now -- own posterior
+  // where we have head-to-head data, else a wide bloc-anchored fallback (flagged
+  // runoff_inferred). Uncertainty propagates either way.
+  const SDR = {}; UNIV.forEach(c => { SDR[c.name] = c.sdraws; });
   const strengthAt = (n, d) => { const a = SDR[n]; return a ? a[d % a.length] : 0; };
 
   // ---- field R + directional transfer of dropped-out candidates ----
@@ -219,13 +233,19 @@ function computeView(sel) {
   if (TRANSFER) {
     // Reference field = the default line-up (so unticking a default candidate is
     // a drop-out that transfers) plus any off-by-default candidate the user has
-    // added (they simply join the race, no transfer). RN slot stays exclusive.
-    const isTog = n => ["left", "centre", "lr"].includes(meta(n).role);
+    // added (they simply join the race, no transfer).
+    // Each exclusive slot collapses to ONE representative -- the selected occupant
+    // if any, else the default one -- so two alternatives of the same voter pool
+    // (e.g. Glucksmann + Hollande) can never both enter the softmax and double-count.
+    const slots = [...new Set(UNIV.map(c => c.slot).filter(Boolean))];
+    const slotReps = slots
+      .map(s => sel.find(n => meta(n).slot === s) || MODEL.default_lineup.find(n => meta(n).slot === s))
+      .filter(Boolean);
+    const isTogFree = n => ["left", "centre", "lr"].includes(meta(n).role) && !meta(n).slot;
     const fixed = UNIV.filter(c => c.role === "fixed").map(c => c.name);
-    const chosenRN = sel.find(n => meta(n).role === "rn");
-    const baseTog = MODEL.default_lineup.filter(isTog);
-    const selTog = sel.filter(isTog);
-    R = [...fixed, ...baseTog, ...selTog]; if (chosenRN) R.push(chosenRN);
+    const baseTog = MODEL.default_lineup.filter(isTogFree);
+    const selTog = sel.filter(isTogFree);
+    R = [...fixed, ...slotReps, ...baseTog, ...selTog];
     R = R.filter((n, i) => R.indexOf(n) === i);
   } else {
     R = sel.slice();
@@ -234,16 +254,26 @@ function computeView(sel) {
   const selPosInR = sel.map(n => R.indexOf(n));
   const dropped = R.map((_, i) => i).filter(i => !inSel.has(R[i]));
 
-  // transfer weights: each dropped candidate -> running candidates (+ abstain)
+  // transfer weights: each dropped candidate -> running candidates (+ abstain).
+  // Data-backed candidates use the ESTIMATED transfer vector (fracs of their vote
+  // to each recipient; un-transferred remainder abstains); everyone else falls
+  // back to the inverse-distance ASSUMPTION.
+  const TR = MODEL.transfers || {};
   const Tw = {};
   dropped.forEach(d => {
-    const pd = POS[R[d]] ?? 50, w = new Float64Array(L);
-    let denom = Math.pow(1 / Math.max(1, D0), P_EXP);         // abstention anchor
-    for (let s = 0; s < L; s++) {
-      const dist = Math.max(1, Math.abs(pd - (POS[sel[s]] ?? 50)));
-      w[s] = Math.pow(1 / dist, P_EXP); denom += w[s];
+    const name = R[d], w = new Float64Array(L);
+    if (TR[name] && TRANSFER_ESTIMATED) {
+      const to = TR[name].to || {};
+      for (let s = 0; s < L; s++) w[s] = to[sel[s]] || 0;      // vote to absent recipients + estimated abstention stays home
+    } else {
+      const pd = POS[name] ?? 50;
+      let denom = Math.pow(1 / Math.max(1, D0), P_EXP);        // abstention anchor
+      for (let s = 0; s < L; s++) {
+        const dist = Math.max(1, Math.abs(pd - (POS[sel[s]] ?? 50)));
+        w[s] = Math.pow(1 / dist, P_EXP); denom += w[s];
+      }
+      for (let s = 0; s < L; s++) w[s] /= denom;               // residual = abstention
     }
-    for (let s = 0; s < L; s++) w[s] /= denom;                // residual = abstention
     Tw[d] = w;
   });
 
@@ -430,12 +460,15 @@ function winDots(data, animate = true) {
 }
 function winHtml(s, cols) {
   const sw = n => `<span class="tt-sw" style="background:${COLOR[n] || "#888"}"></span>`;
+  const inf = n => INFERRED[n] ? '<span class="tt-inf" title="No head-to-head runoff polls — strength inferred from bloc">*</span>' : "";
   const other = s.w === s.a ? s.b : s.a;
   const pW = Math.round((s.w === s.a ? s.pa : 1 - s.pa) * 100);
+  const note = (INFERRED[s.a] || INFERRED[s.b])
+    ? `<div class="tt-note">* runoff strength inferred (no head-to-head polls)</div>` : "";
   const runoff =
-    `<div class="tt-line">${sw(s.a)} ${s.a} <span class="tt-vs">vs</span> ${sw(s.b)} ${s.b}</div>` +
+    `<div class="tt-line">${sw(s.a)} ${s.a}${inf(s.a)} <span class="tt-vs">vs</span> ${sw(s.b)} ${s.b}${inf(s.b)}</div>` +
     `<div class="tt-win">&rarr; ${sw(s.w)} <b>${s.w}</b> wins</div>` +
-    `<div class="tt-odds">runoff: ${s.w} ${pW}% &middot; ${other} ${100 - pW}%</div>`;
+    `<div class="tt-odds">runoff: ${s.w} ${pW}% &middot; ${other} ${100 - pW}%</div>` + note;
   const r1 = cols.map((n, j) => ({ n, v: s.s[j] })).sort((a, b) => b.v - a.v).map((o, rank) =>
     `<div class="tt-row${o.n === s.w ? " tt-hi" : ""}">${sw(o.n)}${o.n}` +
     `${rank < 2 ? ' <span class="tt-run">runoff</span>' : ""}<b>${o.v.toFixed(1)}%</b></div>`).join("");
@@ -614,6 +647,7 @@ function matchups(data, animate = true) {
   }).filter(p => p.count >= Math.max(5, nTot * 0.01)).sort((A, B) => B.count - A.count).slice(0, 5);
 
   const sw = n => `<span class="tt-sw" style="background:${COLOR[n] || "#888"}"></span>`;
+  const inf = n => INFERRED[n] ? '<span class="tt-inf" title="No head-to-head runoff polls — strength inferred from bloc">*</span>' : "";
   const last = shortName;
   const Wm = document.getElementById("matchups").clientWidth || 700;
   const H = 60, m = { l: 8, r: 8, t: 6, b: 16 };
@@ -622,9 +656,9 @@ function matchups(data, animate = true) {
   pairs.forEach(mu => {
     const c = box.append("div").attr("class", "matchup");
     const head = c.append("div").attr("class", "mu-head");
-    head.append("span").html(`${sw(mu.a)} ${mu.a}`);
+    head.append("span").html(`${sw(mu.a)} ${mu.a}${inf(mu.a)}`);
     head.append("span").attr("class", "freq").text(`${Math.round(100 * mu.count / nTot)}% of simulations`);
-    head.append("span").html(`${mu.b} ${sw(mu.b)}`);
+    head.append("span").html(`${mu.b}${inf(mu.b)} ${sw(mu.b)}`);
 
     const svg = c.append("svg").attr("width", Wm).attr("height", H);
     svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.b})`)

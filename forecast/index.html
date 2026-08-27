@@ -23,17 +23,16 @@
   <main id="app">
     <header class="head">
       <h1>Who will win the 2027 French presidential election?</h1>
-      <p class="sub">A transparent Bayesian poll-aggregation forecast &mdash;
-        first-round vote intention and the runoff.
+      <p class="sub">This is a Bayesian poll-aggregation forecast. It combines first-round and runoff voting intentions.
         <span id="updated"></span></p>
     </header>
 
     <section class="panel">
       <h2>Who's running?</h2>
-      <p class="note">Choose the field &mdash; the left and centre are multi-select,
-        the RN fields one nominee (Le&nbsp;Pen or Bardella), and Les Républicains
-        may sit it out. Only candidates polled recently enough to estimate are
-        shown; the always-included set and minor candidates are fixed. The
+      <p class="note">Choose the field &mdash; the left is multi-select, the centre
+        needs at least one of Attal or Philippe, and Les Républicains picks one (or
+        sits it out). Only candidates polled recently enough to estimate are shown;
+        major and minor fixed candidates (including Le&nbsp;Pen) are always in. The
         forecast recomputes live from the model's posterior draws.
         <button id="pick-reset" class="linklike">reset to default</button></p>
       <div id="candidate-picker"></div>
