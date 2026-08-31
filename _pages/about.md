@@ -15,4 +15,6 @@ My dissertation examines the politics of immigrant entrepreneurship, a distincti
 Methodologically, I seek to create quantitative methods that help applied scholars be thoughtful about the external validity of their research.
 My research is supported by the <a href="https://politicaleconomy.columbia.edu/" target="_blank">Columbia Center for Political Economy</a> and the <a href="https://celss.iserp.columbia.edu/" target="_blank">Columbia Experimental Laboratory for Social Sciences</a>.
 
+Have a look at my <a href="/forecast/">French 2027 presidential election forecast project</a>.
+
 I hold an MPA from the London School of Economics and an MPP from Sciences Po Paris. I graduated in 2016 with a BA in Economics from Keio University, Tokyo and a BA from Sciences Po Paris.

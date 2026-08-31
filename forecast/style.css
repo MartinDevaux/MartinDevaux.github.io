@@ -5,107 +5,114 @@
   --bg: #ffffff;
   --panel: #fbfbfb;
 }
-* { box-sizing: border-box; }
-body {
-  margin: 0;
+
+/* Everything the app renders lives inside .forecast-app so these rules can't
+   leak into (or be overridden by) the host page's stylesheet. The one
+   exception is .tooltip*, which d3 attaches to <body> (outside the wrapper);
+   those stay global on purpose. */
+.forecast-app, .forecast-app *, .forecast-app *::before, .forecast-app *::after { box-sizing: border-box; }
+.forecast-app {
+  max-width: 900px; margin: 0 auto; padding: 28px 20px 60px;
   color: var(--ink);
-  background: var(--bg);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
-#app { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
 
-.head h1 {
+.forecast-app .head h1 {
   font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
   margin: 0 0 6px;
 }
-.head .sub { color: var(--muted); margin: 0 0 8px; font-size: 15px; }
-#updated { color: #999; }
+.forecast-app .head .sub { color: var(--muted); margin: 0 0 8px; font-size: 15px; }
+.forecast-app #updated { color: #999; }
 
-.panel {
+.forecast-app .panel {
   border-top: 1px solid var(--line);
   padding-top: 22px; margin-top: 30px;
 }
-.panel h2 {
+.forecast-app .panel h2 {
   font-size: 20px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em;
 }
-.note { color: var(--muted); font-size: 13.5px; margin: 0 0 16px; max-width: 640px; }
-.note.howto { max-width: 720px; }
-.note.howto li { margin: 3px 0; }
-.scenario-note {
+.forecast-app .note { color: var(--muted); font-size: 13.5px; margin: 0 0 16px; max-width: 640px; }
+.forecast-app .note.howto { max-width: 720px; }
+.forecast-app .note.howto li { margin: 3px 0; }
+.forecast-app .scenario-note {
   max-width: 720px; margin: 4px 0 2px; padding: 10px 12px;
   font-size: 13px; line-height: 1.5; color: #6b5a1e;
   background: #fdf6e3; border: 1px solid #e7d9a8; border-left: 3px solid #d9a441; border-radius: 4px;
 }
 
 /* win probability bars */
-.winrow { display: grid; grid-template-columns: 168px 1fr 54px; align-items: center;
+.forecast-app .winrow { display: grid; grid-template-columns: 168px 1fr 54px; align-items: center;
   gap: 10px; margin: 7px 0; }
-.winrow .name { font-size: 14px; font-weight: 600; text-align: right;
+.forecast-app .winrow .name { font-size: 14px; font-weight: 600; text-align: right;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.winrow .track { background: #f0f0f0; height: 22px; border-radius: 3px; position: relative; }
-.winrow .fill { height: 100%; border-radius: 3px; }
-.winrow .pct { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; }
-.winrow .party { color: var(--muted); font-weight: 500; font-size: 12px; }
+.forecast-app .winrow .track { background: #f0f0f0; height: 22px; border-radius: 3px; position: relative; }
+.forecast-app .winrow .fill { height: 100%; border-radius: 3px; }
+.forecast-app .winrow .pct { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; }
+.forecast-app .winrow .party { color: var(--muted); font-weight: 500; font-size: 12px; }
 
-.legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 10px; }
-.legend .item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #444; }
-.legend .swatch { width: 11px; height: 11px; border-radius: 2px; }
+.forecast-app .legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 10px; }
+.forecast-app .legend .item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #444; }
+.forecast-app .legend .swatch { width: 11px; height: 11px; border-radius: 2px; }
 
-svg text { font-family: inherit; }
-.axis text { fill: var(--muted); font-size: 11px; }
-.axis line, .axis path { stroke: var(--line); }
-.gridline { stroke: #eee; stroke-dasharray: 2 2; }
-.elec-line { stroke: #bbb; stroke-dasharray: 4 3; }
+.forecast-app svg text { font-family: inherit; }
+.forecast-app .axis text { fill: var(--muted); font-size: 11px; }
+.forecast-app .axis line, .forecast-app .axis path { stroke: var(--line); }
+.forecast-app .gridline { stroke: #eee; stroke-dasharray: 2 2; }
+.forecast-app .elec-line { stroke: #bbb; stroke-dasharray: 4 3; }
 
-.matchup { margin: 16px 0; }
-.mu-head { display: flex; justify-content: space-between; align-items: center;
+.forecast-app .matchup { margin: 16px 0; }
+.forecast-app .mu-head { display: flex; justify-content: space-between; align-items: center;
   font-size: 13.5px; font-weight: 600; }
-.mu-head .freq { color: var(--muted); font-size: 11.5px; font-weight: 500; }
-.mu-head .tt-sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block;
+.forecast-app .mu-head .freq { color: var(--muted); font-size: 11.5px; font-weight: 500; }
+.forecast-app .mu-head .tt-sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block;
   vertical-align: middle; }
-.matchup svg { display: block; }
-.matchup .mudot { cursor: pointer; }
-.mu-foot { display: flex; justify-content: space-between; font-size: 11.5px;
+.forecast-app .matchup svg { display: block; }
+.forecast-app .matchup .mudot { cursor: pointer; }
+.forecast-app .mu-foot { display: flex; justify-content: space-between; font-size: 11.5px;
   font-weight: 700; font-variant-numeric: tabular-nums; margin-top: -2px; }
 
-.foot { border-top: 1px solid var(--line); margin-top: 40px; padding-top: 16px; }
-.foot p { color: var(--muted); font-size: 12px; max-width: 700px; }
+.forecast-app .foot { border-top: 1px solid var(--line); margin-top: 40px; padding-top: 16px; }
+.forecast-app .foot p { color: var(--muted); font-size: 12px; max-width: 700px; }
 
 /* methodology */
-.method-btn { background: none; border: none; font: inherit; font-size: 18px; font-weight: 700;
+.forecast-app .method-btn { background: none; border: none; font: inherit; font-size: 18px; font-weight: 700;
   letter-spacing: -0.01em; color: var(--ink); cursor: pointer; padding: 0; }
-.method-btn:hover { color: #3b5bdb; }
-.method-body { max-width: 680px; margin-top: 14px; }
-.method-body p, .method-body li { font-size: 14px; color: #333; }
-.method-body h3 { font-size: 15px; font-weight: 700; margin: 22px 0 6px; }
-.method-body ul { padding-left: 20px; }
-.method-body li { margin: 5px 0; }
-.method-body i { font-family: Georgia, "Times New Roman", serif; font-style: italic; }
-.method-body code { font-size: 12.5px; background: #f2f2f4; padding: 1px 4px; border-radius: 3px; }
-.eq { font-family: Georgia, "Times New Roman", serif; font-size: 15px; text-align: center;
+.forecast-app .method-btn:hover { color: #3b5bdb; }
+.forecast-app .method-body { max-width: 680px; margin-top: 14px; }
+.forecast-app .method-body p, .forecast-app .method-body li { font-size: 14px; color: #333; }
+.forecast-app .method-body h3 { font-size: 15px; font-weight: 700; margin: 22px 0 6px; }
+.forecast-app .method-body ul { padding-left: 20px; }
+.forecast-app .method-body li { margin: 5px 0; }
+.forecast-app .method-body i { font-family: Georgia, "Times New Roman", serif; font-style: italic; }
+.forecast-app .method-body code { font-size: 12.5px; background: #f2f2f4; padding: 1px 4px; border-radius: 3px; }
+.forecast-app .eq { font-family: Georgia, "Times New Roman", serif; font-size: 15px; text-align: center;
   margin: 12px 0; padding: 8px 4px; background: #fafafb; border-left: 2px solid #e0e3ea;
   overflow-x: auto; }
-.method-tbl { border-collapse: collapse; font-size: 13px; margin: 10px 0 6px; width: 100%; }
-.method-tbl th, .method-tbl td { text-align: left; padding: 4px 10px; border-bottom: 1px solid var(--line); }
-.method-tbl th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; }
-.method-tbl td:last-child { font-variant-numeric: tabular-nums; }
-.method-foot { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
-.method-body a { color: #3b5bdb; text-decoration: none; border-bottom: 1px solid #cdd6ee; }
-.method-body a:hover { border-bottom-color: #3b5bdb; }
-.method-body .box { background: #f4f6fb; border: 1px solid #e4e9f4; border-radius: 6px;
+.forecast-app .method-tbl { border-collapse: collapse; font-size: 13px; margin: 10px 0 6px; width: 100%; }
+.forecast-app .method-tbl th, .forecast-app .method-tbl td { text-align: left; padding: 4px 10px; border-bottom: 1px solid var(--line); }
+.forecast-app .method-tbl th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; }
+.forecast-app .method-tbl td:last-child { font-variant-numeric: tabular-nums; }
+.forecast-app .method-foot { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
+.forecast-app .method-body a { color: #3b5bdb; text-decoration: none; border-bottom: 1px solid #cdd6ee; }
+.forecast-app .method-body a:hover { border-bottom-color: #3b5bdb; }
+.forecast-app .method-body .box { background: #f4f6fb; border: 1px solid #e4e9f4; border-radius: 6px;
   padding: 9px 12px; margin: 12px 0; font-size: 13px; color: #37414f; line-height: 1.55; }
-.method-body .box .term { display: block; color: #3b5bdb; font-size: 11px; font-weight: 700;
+.forecast-app .method-body .box .term { display: block; color: #3b5bdb; font-size: 11px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
-.method-body .box i { font-family: Georgia, "Times New Roman", serif; }
-.method-body .cite { color: #8a8f99; }
+.forecast-app .method-body .box i { font-family: Georgia, "Times New Roman", serif; }
+.forecast-app .method-body .cite { color: #8a8f99; }
 
+/* tooltip: d3 appends this to <body>, so it must stay OUTSIDE the .forecast-app
+   namespace. Font is set explicitly since it no longer inherits the wrapper. */
 .tooltip {
   position: absolute; pointer-events: none; background: #1f1f1f; color: #fff;
   padding: 8px 10px; border-radius: 6px; font-size: 12px; opacity: 0;
   transition: opacity .12s; z-index: 10; box-shadow: 0 4px 14px rgba(0,0,0,.25);
   max-width: 260px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.5;
 }
 .tooltip .tt-h { font-weight: 700; margin-bottom: 5px; font-size: 12.5px; }
 .tooltip .tt-sub { color: #bbb; font-weight: 400; }
@@ -126,35 +133,52 @@ svg text { font-family: inherit; }
 .tooltip .tt-odds { color: #b7bdca; font-size: 11px; margin-top: 2px; }
 .tooltip .tt-note { color: #9aa2b1; font-size: 10.5px; font-style: italic; margin-top: 3px; }
 .tt-inf { color: #d9a441; font-weight: 700; cursor: help; }
-.mu-head .tt-inf { color: #b98a2e; }
-.windot { cursor: pointer; }
-.dot { cursor: pointer; }
-.winrow { cursor: default; }
-.crosshair { stroke: #999; stroke-width: 1; stroke-dasharray: 3 2; pointer-events: none; }
+.forecast-app .mu-head .tt-inf { color: #b98a2e; }
+.forecast-app .windot { cursor: pointer; }
+.forecast-app .dot { cursor: pointer; }
+.forecast-app .winrow { cursor: default; }
+.forecast-app .crosshair { stroke: #999; stroke-width: 1; stroke-dasharray: 3 2; pointer-events: none; }
 
 /* candidate picker */
-#candidate-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+.forecast-app #candidate-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 14px 20px; margin-top: 6px; }
-.pbloc-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+.forecast-app .pbloc-h { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   color: var(--muted); margin-bottom: 6px; border-bottom: 1px solid var(--line); padding-bottom: 3px; }
-.pcand { display: flex; align-items: center; gap: 7px; font-size: 13px; padding: 2px 0; cursor: pointer; }
-.pcand input { cursor: pointer; margin: 0; }
-.pcand .pdot { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
-.pcand.off { color: #aaa; }
-.pcand.off .pdot { opacity: .3; }
-.pcand.locked { color: #888; cursor: default; }
-.pcand.locked input { cursor: default; }
-.pcand.altslot { border-left: 2px solid #d9d2e6; padding-left: 5px; margin-left: -7px; }
-.linklike { background: none; border: none; color: #3b5bdb; font: inherit; font-size: 13px;
+.forecast-app .pcand { display: flex; align-items: center; gap: 7px; font-size: 13px; padding: 2px 0; cursor: pointer; }
+.forecast-app .pcand input { cursor: pointer; margin: 0; }
+.forecast-app .pcand .pdot { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
+.forecast-app .pcand.off { color: #aaa; }
+.forecast-app .pcand.off .pdot { opacity: .3; }
+.forecast-app .pcand.locked { color: #888; cursor: default; }
+.forecast-app .pcand.locked input { cursor: default; }
+.forecast-app .pcand.altslot { border-left: 2px solid #d9d2e6; padding-left: 5px; margin-left: -7px; }
+.forecast-app .linklike { background: none; border: none; color: #3b5bdb; font: inherit; font-size: 13px;
   cursor: pointer; padding: 0; text-decoration: underline; }
-.warn { color: #c0392b; font-size: 13px; font-weight: 600; }
+.forecast-app .warn { color: #c0392b; font-size: 13px; font-weight: 600; }
 
 /* parameters panel */
-#param-globals { margin: 4px 0 14px; }
-.posrow { display: flex; align-items: center; gap: 9px; margin: 4px 0; font-size: 13px; }
-.posrow .posname { width: 150px; flex: 0 0 auto; }
-.posrow .posname.wide { width: 300px; color: #444; }
-.posrow .posval { width: 34px; text-align: right; font-variant-numeric: tabular-nums;
+.forecast-app #param-globals { margin: 4px 0 14px; }
+.forecast-app .posrow { display: flex; align-items: center; gap: 9px; margin: 4px 0; font-size: 13px; }
+.forecast-app .posrow .posname { width: 150px; flex: 0 0 auto; }
+.forecast-app .posrow .posname.wide { width: 300px; color: #444; }
+.forecast-app .posrow .posval { width: 34px; text-align: right; font-variant-numeric: tabular-nums;
   color: var(--muted); flex: 0 0 auto; }
-.posrow input[type=range] { flex: 1 1 auto; accent-color: #3b5bdb; max-width: 340px; }
-#param-positions .pdot { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
+.forecast-app .posrow input[type=range] { flex: 1 1 auto; accent-color: #3b5bdb; max-width: 340px; }
+.forecast-app #param-positions .pdot { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
+
+.forecast-app .frac {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.forecast-app .frac .num {
+  border-bottom: 1px solid currentColor;
+  padding: 0 0.2em 0.1em;
+}
+
+.forecast-app .frac .den {
+  padding: 0.1em 0.2em 0;
+}

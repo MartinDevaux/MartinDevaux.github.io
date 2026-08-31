@@ -81,7 +81,7 @@ function initModel(model) {
 // "fixed" candidates (incl. Le Pen) are always in and not shown.
 const ROLE_GROUPS = [
   { role: "left",   title: "Left (choose any)" },
-  { role: "centre", title: "Centre (choose one or both)" },
+  { role: "centre", title: "Centre (choose one)" },
   { role: "lr",     title: "Les Républicains (choose one)" }
 ];
 const CENTRE_NAMES = () => UNIV.filter(c => c.role === "centre").map(c => c.name);
@@ -192,22 +192,22 @@ function buildParams() {
   });
 }
 
-function scenarioActive(sel) {
-  // the field differs from the default line-up => withdrawal/swap assumptions are in play
-  const def = new Set(MODEL.default_lineup);
-  return sel.length !== def.size || sel.some(n => !def.has(n));
-}
 function update(first) {
   const sel = NAMES.filter(n => SELECTED.has(n));
   const banner = document.getElementById("scenario-banner");
-  if (banner) banner.hidden = !(TRANSFER && scenarioActive(sel));
   if (sel.length < 2) {
+    if (banner) banner.hidden = true;
     d3.select("#pick-warning").style("display", null);
     clearCharts();
     return;
   }
   d3.select("#pick-warning").style("display", "none");
   const view = computeView(sel);
+  // Banner only when votes are actually redistributed (a candidate removed and
+  // their vote reallocated). A poll-driven slot swap -- e.g. choosing Attal
+  // instead of Philippe -- leaves every candidate at its own estimate, so no
+  // banner: it isn't an opt-out into an assumption.
+  if (banner) banner.hidden = !(TRANSFER && view.redistributed);
   first ? render(view) : renderAll(view);
 }
 function clearCharts() {
@@ -359,19 +359,25 @@ function computeView(sel) {
   const nSim = Math.min(1000, nE), step = nE / nSim, draws = [];
   for (let k = 0; k < nSim; k++) draws.push(sims[Math.floor(k * step)].s);
 
-  // ---- polls renormalised within the subset ----
-  const selSet = new Set(sel);
-  const polls = MODEL.round1.polls.map(p => {
-    const sc = p.scores.filter(s => selSet.has(s.name));
-    const tot = sc.reduce((a, s) => a + s.pct, 0) || 1;
-    return { date: p.date, pollster: p.pollster, n: p.n,
-             scores: sc.map(s => ({ name: s.name, pct: Math.round(s.pct / tot * 1000) / 10 })) };
-  }).filter(p => p.scores.length > 0);
+  // ---- poll dots: every candidate's actual reported share, exactly as
+  // published (no renormalisation), independent of the selected line-up. The
+  // selection drives only the predicted lines; the data dots always show what
+  // pollsters found -- so a Bardella-nominee poll shows Bardella, nothing is
+  // inflated by dropping the RN, and the dots match the source tables. The
+  // legend and lines stay limited to the selection.
+  const polls = MODEL.round1.polls.map(p => ({
+    date: p.date, pollster: p.pollster, n: p.n,
+    scores: p.scores.map(s => ({ name: s.name, pct: s.pct }))
+  }));
 
   const cands = rows.map(r => { const m = meta(r.candidate); return { name: r.candidate, party: m.party, color: m.color }; });
   return {
     updated: MODEL.updated, election_date_r1: MODEL.election_date_r1,
     lineup_note: `${L} candidates in this scenario.`,
+    // true only when a candidate was removed and their vote reallocated -- a
+    // real assumption. A slot swap (e.g. Attal for Philippe) leaves dropped
+    // empty: every candidate is at its own poll-driven estimate, no banner.
+    redistributed: dropped.length > 0,
     candidates: cands, sims,
     round1: { dates: MODEL.weeks.dates, trajectory: traj, draw_candidates: sel, draws,
               polls, last_poll_date: MODEL.weeks.dates[lw - 1] },
@@ -386,7 +392,8 @@ function computeView(sel) {
 // =====================================================================
 function prep(data) {
   COLOR = {}; STATS = {}; DATA = data;
-  data.candidates.forEach(c => { COLOR[c.name] = c.color; });
+  MODEL.candidates.forEach(c => { COLOR[c.name] = c.color; });  // all candidates -> dots for any polled name
+  data.candidates.forEach(c => { COLOR[c.name] = c.color; });   // selected (legend/lines)
   (data.summary || []).forEach(s => { STATS[s.candidate] = s; });
   d3.select("#updated").text("Updated " + data.updated + ".");
   d3.select("#lineup-note").text(data.lineup_note || "");
@@ -499,6 +506,8 @@ function fanChart(data, animate = true) {
 
   const x = d3.scaleTime().domain(d3.extent(dates.concat([elec]))).range([m.left, W - m.right]);
   let ymax = 0; names.forEach(n => ymax = Math.max(ymax, d3.max(data.round1.trajectory[n].p90)));
+  // let tall data dots (e.g. an RN nominee not in the selected line-up) fit
+  (data.round1.polls || []).forEach(p => p.scores.forEach(s => { if (s.name in COLOR) ymax = Math.max(ymax, s.pct); }));
   const y = d3.scaleLinear().domain([0, Math.ceil(ymax / 5) * 5 + 2]).range([H - m.bottom, m.top]);
 
   d3.select("#fan").selectAll("svg").remove();          // idempotent: never duplicate
