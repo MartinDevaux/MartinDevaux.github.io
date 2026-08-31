@@ -7,12 +7,13 @@ author_profile: false
 <div id="app" class="forecast-app">
     <header class="head">
       <h1>Who will win the 2027 French presidential election?</h1>
-      <p class="sub">Bayesian poll-aggregation forecast. This is work in progress, I would love your feedback.
-        <span id="updated"></span></p>
+      <p class="sub">Bayesian poll-aggregation forecast. This is work in progress, I would love your feedback.</p>
+      <p class="sub" id="updated"></p>
     </header>
 
     <section class="panel">
-      <h2>Who's running?</h2>
+      <button id="pick-toggle" class="method-btn" aria-expanded="false">&#9656;&nbsp; Select candidates running</button>
+      <div id="pick-body" hidden>
       <p class="note">Choose among the following. On the left, you can choose to include the Green Party
       candidate or not, and you can choose one of the three Socialist candidates. At the center, you must
       select either Attal or Philippe. For Les Républicains, pick one or
@@ -29,28 +30,6 @@ author_profile: false
         inverse-distance assumption otherwise (tune it under <i>Parameters &amp; assumptions</i>).
         The poll-derived part is the current standing of the candidates who are running.
       </div>
-    </section>
-
-    <section class="panel">
-      <button id="params-toggle" class="method-btn" aria-expanded="false">
-        &#9656;&nbsp; Parameters &amp; assumptions</button>
-      <div id="params-body" class="method-body" hidden>
-        <p class="note">When you untick a candidate, they &ldquo;drop out&rdquo; and their vote is
-          redistributed to the remaining candidates by inverse-distance weighting on a
-          left&ndash;right axis (nearer candidates receive more), with a proportion of abstention for voters
-          who would rather stay home than vote for anyone but their favorite candidate. These positions
-          and knobs are explicit <i>assumptions</i> below: adjust them and everything is recomputed.
-          <button id="params-reset" class="linklike">Reset parameters</button></p>
-        
-        <div id="param-globals"></div>
-        
-        <h3>Candidate positions&nbsp; (0 = far left &nbsp;&rarr;&nbsp; 100 = far right)</h3>
-        
-        <p class="note">The left-right ordering is fixed: each slider is stuck
-          between its neighbours. You therefore calibrate distances, not who sits to the left of whom.</p>
-        
-        <div id="param-positions"></div>
-      
       </div>
     </section>
 
@@ -103,6 +82,29 @@ author_profile: false
         share and coloured by the winner; the dashed line is the 50% threshold.
         Hover a dot for that runoff's result.</p>
       <div id="matchups"></div>
+    </section>
+
+    <section class="panel">
+      <button id="params-toggle" class="method-btn" aria-expanded="false">
+        &#9656;&nbsp; Parameters &amp; assumptions</button>
+      <div id="params-body" class="method-body" hidden>
+        <p class="note">When you untick a candidate, they &ldquo;drop out&rdquo; and their vote is
+          redistributed to the remaining candidates by inverse-distance weighting on a
+          left&ndash;right axis (nearer candidates receive more), with a proportion of abstention for voters
+          who would rather stay home than vote for anyone but their favorite candidate. These positions
+          and knobs are explicit <i>assumptions</i> below: adjust them and everything is recomputed.
+          <button id="params-reset" class="linklike">Reset parameters</button></p>
+
+        <div id="param-globals"></div>
+
+        <h3>Candidate positions&nbsp; (0 = far left &nbsp;&rarr;&nbsp; 100 = far right)</h3>
+
+        <p class="note">The left-right ordering is fixed: each slider is stuck
+          between its neighbours. You therefore calibrate distances, not who sits to the left of whom.</p>
+
+        <div id="param-positions"></div>
+
+      </div>
     </section>
 
     <section class="panel method">

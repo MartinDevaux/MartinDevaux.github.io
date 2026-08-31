@@ -22,6 +22,7 @@ function wireToggle(btnId, bodyId, label) {
 }
 wireToggle("method-toggle", "method-body", "Methodology &amp; model details");
 wireToggle("params-toggle", "params-body", "Parameters &amp; assumptions");
+wireToggle("pick-toggle", "pick-body", "Who's running?");
 
 const tip = d3.select("body").append("div").attr("class", "tooltip");
 const showTip = html => tip.html(html).style("opacity", 1);
