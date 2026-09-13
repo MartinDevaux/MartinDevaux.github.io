@@ -26,8 +26,8 @@ author_profile: false
       <div id="scenario-banner" class="scenario-note" hidden>
         <b>Scenario assumption, not simply poll-driven prediction.</b> You have changed the field from
         the default. The votes of candidates you remove are redistributed to those still running:
-        estimated from head-to-head polls where we have them (Attal, Philippe), and by an explicit
-        inverse-distance assumption otherwise (tune it under <i>Parameters &amp; assumptions</i>).
+        estimated from head-to-head polls where we have them (Attal, Philippe), and otherwise by an explicit
+        size-weighted proximity assumption: nearer, larger candidates absorb more (tune it under <i>Parameters &amp; assumptions</i>).
         The poll-derived part is the current standing of the candidates who are running.
       </div>
       </div>
@@ -51,7 +51,7 @@ author_profile: false
     <section class="panel">
       <h2>Who wins the presidency?</h2>
       <p class="note">Each dot is one simulated election, placed in the row of the
-        candidate who won it &mdash; so the width of each cloud is that
+        candidate who won it, so the width of each cloud is that
         candidate's chance of winning. Hover a dot to see that simulation's
         first-round result and the runoff it produced.
         (<span id="lineup-note"></span>)</p>
@@ -89,8 +89,8 @@ author_profile: false
         &#9656;&nbsp; Parameters &amp; assumptions</button>
       <div id="params-body" class="method-body" hidden>
         <p class="note">When you untick a candidate, they &ldquo;drop out&rdquo; and their vote is
-          redistributed to the remaining candidates by inverse-distance weighting on a
-          left&ndash;right axis (nearer candidates receive more), with a proportion of abstention for voters
+          redistributed to the remaining candidates by size-weighted inverse-distance weighting on a
+          left&ndash;right axis (nearer and larger candidates receive more), with a proportion of abstention for voters
           who would rather stay home than vote for anyone but their favorite candidate. These positions
           and knobs are explicit <i>assumptions</i> below: adjust them and everything is recomputed.
           <button id="params-reset" class="linklike">Reset parameters</button></p>
@@ -124,8 +124,8 @@ author_profile: false
         My model has two stages: a first-round
         vote-share model and a runoff model. It is a Bayesian model, which requires setting priors. Some are deliberate
         regularisation choices (e.g. the fixed random-walk step and the runoff-strength prior); the key
-        <i>forecast-uncertainty</i> parameters &mdash; how fast uncertainty grows toward election day, and the
-        irreducible election-day poll error &mdash; are calibrated on the 2012, 2017, and 2022 elections. Three cycles
+        <i>forecast-uncertainty</i> parameters (how fast uncertainty grows toward election day, and the
+        irreducible election-day poll error) are calibrated on the 2012, 2017, and 2022 elections. Three cycles
         is not a lot of history, so these are estimated with real uncertainty. Everything is fit in Stan. This page
         recomputes the forecast for the candidate line-up you select from the posterior draws.</p>
         
@@ -327,7 +327,8 @@ author_profile: false
         above. But when a candidate is withdrawn, their support is not simply left to renormalise
         proportionally over the rest (which is all the softmax denominator would do). It is reallocated to the
         remaining candidates using estimated head-to-head transfers where the data support them, and otherwise by
-        inverse-distance weighting on the left&ndash;right axis with an abstention outlet (as described in the
+        size-weighted inverse-distance weighting on the left&ndash;right axis (a recipient&rsquo;s pull is its current
+        size times proximity, so a tiny neighbour cannot absorb a disproportionate share) with an abstention outlet (as described in the
         <i>Parameters &amp; assumptions</i> section). This is why a withdrawal is flagged on the page as an explicit
         assumption rather than a poll-driven prediction.</div>
 
@@ -362,8 +363,7 @@ author_profile: false
         full posterior and add a horizon inflation
         <i>&sigma;</i><sub>2</sub> = &radic;(<i>s</i><sub>err</sub><sup>2</sup> + <i>s</i><sub>rw,day</sub><sup>2</sup>&thinsp;<i>H</i>)
         to get <i>X</i>'s second-round share. This is a <i>single</i> Normal shock on the strength
-        <i>difference</i> <i>s<sub>X</sub></i> &minus; <i>s<sub>Y</sub></i> &mdash; not two independent per-candidate
-        shocks, which would widen the gap by a further &radic;2.
+        <i>difference</i> <i>s<sub>X</sub></i> &minus; <i>s<sub>Y</sub></i>.
         
         <div class="eq"><i>p<sub>X</sub></i> = logit<sup>&minus;1</sup>(<i>s<sub>X</sub></i> &minus; <i>s<sub>Y</sub></i>
         + <i>&sigma;</i><sub>2</sub>&thinsp;<i>&xi;</i>),<br>

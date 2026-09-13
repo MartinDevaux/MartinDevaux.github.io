@@ -267,32 +267,44 @@ function computeView(sel) {
 
   // transfer weights: each dropped candidate -> running candidates (+ abstain).
   // Data-backed candidates use the ESTIMATED transfer vector (fracs of their vote
-  // to each recipient; un-transferred remainder abstains); everyone else falls
-  // back to the inverse-distance ASSUMPTION.
+  // to each recipient; un-transferred remainder abstains). Everyone else falls
+  // back to a gravity ASSUMPTION: a recipient's pull is its running SIZE times
+  // inverse-distance in left-right space, so a tiny neighbour can't absorb a
+  // disproportionate share purely for being closest. The abstention outlet is
+  // still set by distance alone (unchanged); only the transferred remainder is
+  // split by size x inverse-distance, evaluated per draw since sizes vary.
   const TR = MODEL.transfers || {};
-  const Tw = {};
-  dropped.forEach(d => {
-    const name = R[d], w = new Float64Array(L);
+  const XF = dropped.map(d => {
+    const name = R[d];
     if (TR[name] && TRANSFER_ESTIMATED) {
-      const to = TR[name].to || {};
+      const to = TR[name].to || {}, w = new Float64Array(L);
       for (let s = 0; s < L; s++) w[s] = to[sel[s]] || 0;      // vote to absent recipients + estimated abstention stays home
-    } else {
-      const pd = POS[name] ?? 50;
-      let denom = Math.pow(1 / Math.max(1, D0), P_EXP);        // abstention anchor
-      for (let s = 0; s < L; s++) {
-        const dist = Math.max(1, Math.abs(pd - (POS[sel[s]] ?? 50)));
-        w[s] = Math.pow(1 / dist, P_EXP); denom += w[s];
-      }
-      for (let s = 0; s < L; s++) w[s] /= denom;               // residual = abstention
+      return { d, est: true, w };
     }
-    Tw[d] = w;
+    const pd = POS[name] ?? 50, dw = new Float64Array(L);
+    let sdw = 0;
+    for (let s = 0; s < L; s++) {
+      const dist = Math.max(1, Math.abs(pd - (POS[sel[s]] ?? 50)));
+      dw[s] = Math.pow(1 / dist, P_EXP); sdw += dw[s];
+    }
+    const aw = Math.pow(1 / Math.max(1, D0), P_EXP);           // abstention anchor (distance only)
+    return { d, est: false, dw, tf: sdw > 0 ? sdw / (sdw + aw) : 0 };  // tf = fraction that transfers (vs abstains)
   });
 
   // softmax over R -> shares over sel (redistribute dropped, renormalise)
   function project(e) {
     const base = new Float64Array(L);
     for (let s = 0; s < L; s++) base[s] = e[selPosInR[s]];
-    dropped.forEach(d => { const w = Tw[d], ed = e[d]; for (let s = 0; s < L; s++) base[s] += ed * w[s]; });
+    const size = Float64Array.from(base);                      // pre-transfer running sizes (this draw)
+    for (const x of XF) {
+      const ed = e[x.d];
+      if (x.est) { for (let s = 0; s < L; s++) base[s] += ed * x.w[s]; continue; }
+      const dw = x.dw;
+      let sden = 0; for (let s = 0; s < L; s++) sden += size[s] * dw[s];  // gravity: size x inverse-distance
+      if (sden > 0) { for (let s = 0; s < L; s++) base[s] += ed * x.tf * (size[s] * dw[s]) / sden; }
+      else { let dd = 0; for (let s = 0; s < L; s++) dd += dw[s];         // degenerate (no size): distance only
+             if (dd > 0) for (let s = 0; s < L; s++) base[s] += ed * x.tf * dw[s] / dd; }
+    }
     let tot = 0; for (let s = 0; s < L; s++) tot += base[s];
     if (tot > 0) for (let s = 0; s < L; s++) base[s] /= tot;
     return base;
