@@ -1,11 +1,17 @@
 {
-  "updated": "2026-09-12",
+  "updated": "2026-09-14",
   "scenarios": [
     {
       "id": "marine-le-pen",
       "label": "Marine Le Pen",
       "file": "forecast_marine-le-pen.json",
       "default": true
+    },
+    {
+      "id": "both",
+      "label": "Both centrists (Attal + Philippe)",
+      "file": "forecast_both.json",
+      "default": false
     }
   ]
 }

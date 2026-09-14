@@ -12,11 +12,11 @@ author_profile: false
     </header>
 
     <section class="panel">
-      <button id="pick-toggle" class="method-btn" aria-expanded="false">&#9656;&nbsp; Select candidates running</button>
-      <div id="pick-body" hidden>
+      <h2>Who's running?</h2>
+      <div id="pick-body">
       <p class="note">Choose among the following. On the left, you can choose to include the Green Party
-      candidate or not, and you can choose one of the three Socialist candidates. At the center, you must
-      select either Attal or Philippe. For Les Républicains, pick one or
+      candidate or not, and you can choose one of the three Socialist candidates. At the center, choose
+      Attal, Philippe, or Both. For Les Républicains, pick one or
       none. Only candidates polled recently enough to estimate are shown.
       All the "fixed" major and minor candidates (including Le Pen since she confirmed she was running)
       are always included. The forecast recomputes simulated results from the posterior draws.
@@ -27,14 +27,15 @@ author_profile: false
         <b>Scenario assumption, not simply poll-driven prediction.</b> You have changed the field from
         the default. The votes of candidates you remove are redistributed to those still running:
         estimated from head-to-head polls where we have them (Attal, Philippe), and otherwise by an explicit
-        size-weighted proximity assumption: nearer, larger candidates absorb more (tune it under <i>Parameters &amp; assumptions</i>).
+        size-weighted proximity assumption (nearer, larger candidates absorb more; tune it under <i>Parameters &amp; assumptions</i>).
         The poll-derived part is the current standing of the candidates who are running.
       </div>
       </div>
     </section>
 
     <section class="panel">
-      <h2>How to read this forecast</h2>
+      <button id="howto-toggle" class="method-btn" aria-expanded="false">&#9656;&nbsp; How to read this forecast</button>
+      <div id="howto-body" hidden>
       <ul class="note howto">
         <li>All panels are interactive: hover over the plots to read more information.</li>
         <li>This model uses polls to simulate the upcoming French presidential election 1,000 times.</li>
@@ -46,12 +47,13 @@ author_profile: false
         <li><b>Note 2</b> candidate withdrawals are scenarios, not just predictions. They layer an explicit
           assumption about where a departing candidate's voters go on top of the poll-driven forecast.</li>
       </ul>
+      </div>
     </section>
 
     <section class="panel">
       <h2>Who wins the presidency?</h2>
       <p class="note">Each dot is one simulated election, placed in the row of the
-        candidate who won it, so the width of each cloud is that
+        candidate who won it &mdash; so the width of each cloud is that
         candidate's chance of winning. Hover a dot to see that simulation's
         first-round result and the runoff it produced.
         (<span id="lineup-note"></span>)</p>
@@ -124,8 +126,8 @@ author_profile: false
         My model has two stages: a first-round
         vote-share model and a runoff model. It is a Bayesian model, which requires setting priors. Some are deliberate
         regularisation choices (e.g. the fixed random-walk step and the runoff-strength prior); the key
-        <i>forecast-uncertainty</i> parameters (how fast uncertainty grows toward election day, and the
-        irreducible election-day poll error) are calibrated on the 2012, 2017, and 2022 elections. Three cycles
+        <i>forecast-uncertainty</i> parameters &mdash; how fast uncertainty grows toward election day, and the
+        irreducible election-day poll error &mdash; are calibrated on the 2012, 2017, and 2022 elections. Three cycles
         is not a lot of history, so these are estimated with real uncertainty. Everything is fit in Stan. This page
         recomputes the forecast for the candidate line-up you select from the posterior draws.</p>
         
@@ -328,7 +330,7 @@ author_profile: false
         proportionally over the rest (which is all the softmax denominator would do). It is reallocated to the
         remaining candidates using estimated head-to-head transfers where the data support them, and otherwise by
         size-weighted inverse-distance weighting on the left&ndash;right axis (a recipient&rsquo;s pull is its current
-        size times proximity, so a tiny neighbour cannot absorb a disproportionate share) with an abstention outlet (as described in the
+        size times proximity, so a tiny neighbour cannot absorb a disproportionate share), with an abstention outlet (as described in the
         <i>Parameters &amp; assumptions</i> section). This is why a withdrawal is flagged on the page as an explicit
         assumption rather than a poll-driven prediction.</div>
 
@@ -363,7 +365,8 @@ author_profile: false
         full posterior and add a horizon inflation
         <i>&sigma;</i><sub>2</sub> = &radic;(<i>s</i><sub>err</sub><sup>2</sup> + <i>s</i><sub>rw,day</sub><sup>2</sup>&thinsp;<i>H</i>)
         to get <i>X</i>'s second-round share. This is a <i>single</i> Normal shock on the strength
-        <i>difference</i> <i>s<sub>X</sub></i> &minus; <i>s<sub>Y</sub></i>.
+        <i>difference</i> <i>s<sub>X</sub></i> &minus; <i>s<sub>Y</sub></i> &mdash; not two independent per-candidate
+        shocks, which would widen the gap by a further &radic;2.
         
         <div class="eq"><i>p<sub>X</sub></i> = logit<sup>&minus;1</sup>(<i>s<sub>X</sub></i> &minus; <i>s<sub>Y</sub></i>
         + <i>&sigma;</i><sub>2</sub>&thinsp;<i>&xi;</i>),<br>
@@ -405,10 +408,6 @@ author_profile: false
             The reported shares are renormalised over modelled candidates: undecideds are
             assumed to split like decideds.</li>
           <li><b>The line-up is a scenario.</b> I don't make any prediction about primary results and the final line-up.</li>
-          <li><b>Softmax independence.</b> Two candidates never polled together are
-            placed on a common scale only through shared opponents. For true substitutes
-            (e.g., the two RN leaders, or Attal/Philippe for the centre), the softmax would overstate their combined support.
-            This is why I don't allow both to be included in the picker.</li>
           <li><b>Independent election-day miss.</b> The election-day miss is applied to each
             candidate independently in latent space, before the softmax. It is not added as a correlated
             national factor. When I check against history, I find that at the current horizon the model's

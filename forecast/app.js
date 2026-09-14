@@ -22,7 +22,7 @@ function wireToggle(btnId, bodyId, label) {
 }
 wireToggle("method-toggle", "method-body", "Methodology &amp; model details");
 wireToggle("params-toggle", "params-body", "Parameters &amp; assumptions");
-wireToggle("pick-toggle", "pick-body", "Who's running?");
+wireToggle("howto-toggle", "howto-body", "How to read this forecast");
 
 const tip = d3.select("body").append("div").attr("class", "tooltip");
 const showTip = html => tip.html(html).style("opacity", 1);
@@ -34,6 +34,7 @@ let MODEL = null, UNIV = [], NAMES = [], SELECTED = new Set();
 // vote-transfer parameters (editable in the Parameters panel)
 let TRANSFER = true, P_EXP = 2, D0 = 30, POS = {}, INFERRED = {};
 let TRANSFER_ESTIMATED = true;   // use estimated transfers where data-backed, else inverse-distance
+let BOTH_CENTRE = false;  // hypothetical: run BOTH ens nominees (Attal + Philippe), applying model.both_centre offsets
 let RUNOFF_MULT = 1.0;   // multiplier on the per-draw runoff sigma2 (slider; base is calibration-driven)
 let RW = [], PE = [], INFL = [];  // per-calibration-draw arrays: drift sd, election-day error sd, runoff sigma2
 
@@ -63,15 +64,20 @@ d3.json("data/model.json").then(initModel).catch(err =>
 
 function initModel(model) {
   MODEL = model; UNIV = model.candidates; NAMES = UNIV.map(c => c.name);
-  SELECTED = new Set(model.default_lineup);
   UNIV.forEach(c => { POS[c.name] = c.pos; INFERRED[c.name] = !!c.runoff_inferred; });
+  applyDefault();
   RW = model.forward.rw_week_sd; PE = model.forward.poll_error; INFL = model.runoff.infl;
   buildPicker();
   buildParams();
-  d3.select("#pick-reset").on("click", () => {
-    SELECTED = new Set(model.default_lineup); syncPicker(); update(false);
-  });
+  d3.select("#pick-reset").on("click", () => { applyDefault(); syncPicker(); update(false); });
   update(true);
+}
+// Default view = both centre nominees running (Attal + Philippe) when offsets are
+// shipped; otherwise the single-centrist default line-up.
+function applyDefault() {
+  SELECTED = new Set(MODEL.default_lineup);
+  BOTH_CENTRE = !!MODEL.both_centre;
+  if (BOTH_CENTRE) CENTRE_NAMES().forEach(n => SELECTED.add(n));
 }
 
 // ---- candidate picker (structured choices) ----
@@ -102,16 +108,45 @@ function buildPicker() {
       lab.append("input").attr("class", "optcheck").attr("type", "checkbox")
         .attr("data-name", c.name)
         .attr("data-slot", c.slot || null)
-        .property("checked", SELECTED.has(c.name))
+        .property("checked", SELECTED.has(c.name) && !(g.role === "centre" && BOTH_CENTRE))
         .on("change", onPick);
       lab.classed("off", !SELECTED.has(c.name));
       lab.append("span").attr("class", "pdot").style("background", c.color);
       lab.append("span").text(c.name);
     });
+    // Centre only: a third mutually-exclusive choice that runs BOTH nominees,
+    // using the both-testing polls (model.both_centre offsets) rather than
+    // double-counting two sole-centrist latents.
+    if (g.role === "centre" && MODEL.both_centre && grp.length >= 2) {
+      const lab = col.append("label").attr("class", "pcand altslot")
+        .attr("title", "Hypothetical: both centre nominees run; centre levels come from polls testing both");
+      lab.append("input").attr("class", "bothcheck").attr("type", "checkbox")
+        .property("checked", BOTH_CENTRE).on("change", onBoth);
+      lab.classed("off", !BOTH_CENTRE);
+      lab.append("span").attr("class", "pdot").style("background", "#7B68A6");
+      lab.append("span").text("Both (Attal + Philippe)");
+    }
   });
+}
+function onBoth() {
+  BOTH_CENTRE = this.checked;
+  if (BOTH_CENTRE) CENTRE_NAMES().forEach(n => SELECTED.add(n));
+  else { // revert to the single default centrist
+    CENTRE_NAMES().forEach(n => SELECTED.delete(n));
+    const def = MODEL.default_lineup.find(n => CENTRE_NAMES().includes(n)) || CENTRE_NAMES()[0];
+    SELECTED.add(def);
+  }
+  syncPicker();
+  update(false);
 }
 function onPick() {
   const name = this.getAttribute("data-name");
+  // Picking a single centrist exits both-centrists mode.
+  if (CENTRE_NAMES().includes(name) && BOTH_CENTRE) {
+    BOTH_CENTRE = false;
+    const bc = document.querySelector("#candidate-picker input.bothcheck");
+    if (bc) { bc.checked = false; d3.select(bc.parentNode).classed("off", true); }
+  }
   // centre must never be empty: block unticking the last remaining centrist
   if (!this.checked && CENTRE_NAMES().includes(name)) {
     const anyCentre = d3.selectAll("#candidate-picker input.optcheck").nodes()
@@ -131,13 +166,17 @@ function onPick() {
     if (this.checked) SELECTED.add(this.getAttribute("data-name"));
     d3.select(this.parentNode).classed("off", !this.checked);
   });
+  if (BOTH_CENTRE) CENTRE_NAMES().forEach(n => SELECTED.add(n));  // keep both in both-mode
   update(false);
 }
 function syncPicker() {
   d3.selectAll("#candidate-picker input.optcheck").each(function () {
-    const on = SELECTED.has(this.getAttribute("data-name"));
+    const name = this.getAttribute("data-name");
+    const on = SELECTED.has(name) && !(BOTH_CENTRE && CENTRE_NAMES().includes(name));
     this.checked = on; d3.select(this.parentNode).classed("off", !on);
   });
+  const bc = document.querySelector("#candidate-picker input.bothcheck");
+  if (bc) { bc.checked = BOTH_CENTRE; d3.select(bc.parentNode).classed("off", !BOTH_CENTRE); }
 }
 
 // ---- parameters panel: transfer toggle, p, d0, and candidate positions ----
@@ -235,6 +274,10 @@ function computeView(sel) {
   // runoff_inferred). Uncertainty propagates either way.
   const SDR = {}; UNIV.forEach(c => { SDR[c.name] = c.sdraws; });
   const strengthAt = (n, d) => { const a = SDR[n]; return a ? a[d % a.length] : 0; };
+  // both-centrists mode: shift each ens nominee's latent by its measured both-world
+  // offset (model.both_centre) so the shared centre isn't double-counted.
+  const BC = MODEL.both_centre || {};
+  const centreOff = (n, d) => (BOTH_CENTRE && BC[n]) ? BC[n][d % BC[n].length] : 0;
 
   // ---- field R + directional transfer of dropped-out candidates ----
   // With transfer ON we score the MAXIMAL field (everyone who could run), then
@@ -249,9 +292,13 @@ function computeView(sel) {
     // if any, else the default one -- so two alternatives of the same voter pool
     // (e.g. Glucksmann + Hollande) can never both enter the softmax and double-count.
     const slots = [...new Set(UNIV.map(c => c.slot).filter(Boolean))];
-    const slotReps = slots
-      .map(s => sel.find(n => meta(n).slot === s) || MODEL.default_lineup.find(n => meta(n).slot === s))
-      .filter(Boolean);
+    const slotReps = slots.flatMap(s => {
+      // both-centrists mode: the ens slot yields BOTH occupants, not one rep.
+      if (s === "ens" && BOTH_CENTRE)
+        return UNIV.filter(c => c.slot === "ens").map(c => c.name);
+      const rep = sel.find(n => meta(n).slot === s) || MODEL.default_lineup.find(n => meta(n).slot === s);
+      return rep ? [rep] : [];
+    });
     const isTogFree = n => ["left", "centre", "lr"].includes(meta(n).role) && !meta(n).slot;
     const fixed = UNIV.filter(c => c.role === "fixed").map(c => c.name);
     const baseTog = MODEL.default_lineup.filter(isTogFree);
@@ -318,8 +365,8 @@ function computeView(sel) {
     for (let d = 0; d < Dt; d++) {
       const latR = new Array(LR);
       for (let i = 0; i < LR; i++) {
-        const c = Ridx[i];
-        latR[i] = w <= lw ? beta[d][c][w - 1] : beta[d][c][lw - 1] + rwOf(d) * Math.sqrt(w - lw) * zf[d][i];
+        const c = Ridx[i], off = centreOff(R[i], d);
+        latR[i] = (w <= lw ? beta[d][c][w - 1] : beta[d][c][lw - 1] + rwOf(d) * Math.sqrt(w - lw) * zf[d][i]) + off;
       }
       const sh = project(softmax(latR));
       for (let s = 0; s < L; s++) col[s][d] = sh[s] * 100;
@@ -342,7 +389,7 @@ function computeView(sel) {
     for (let rep = 0; rep < REPS; rep++) {
       const latR = new Array(LR);
       for (let i = 0; i < LR; i++)
-        latR[i] = beta[d][Ridx[i]][lw - 1] + rwOf(d) * Math.sqrt(W - lw) * randn() + peOf(d) * randn();
+        latR[i] = beta[d][Ridx[i]][lw - 1] + rwOf(d) * Math.sqrt(W - lw) * randn() + peOf(d) * randn() + centreOff(R[i], d);
       const sh = project(softmax(latR));
       for (let s = 0; s < L; s++) perCand[s][e] = sh[s] * 100;
       let i1 = 0, i2 = 1; if (sh[i2] > sh[i1]) { i1 = 1; i2 = 0; }
