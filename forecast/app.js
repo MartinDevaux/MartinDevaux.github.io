@@ -31,11 +31,9 @@ const hideTip = () => tip.style("opacity", 0);
 
 let COLOR = {}, STATS = {}, DATA = null;      // current rendered view
 let MODEL = null, UNIV = [], NAMES = [], SELECTED = new Set();
-// vote-transfer parameters (editable in the Parameters panel)
-let TRANSFER = true, P_EXP = 2, D0 = 30, POS = {}, INFERRED = {};
-let TRANSFER_ESTIMATED = true;   // use estimated transfers where data-backed, else inverse-distance
-let BOTH_CENTRE = false;  // hypothetical: run BOTH ens nominees (Attal + Philippe), applying model.both_centre offsets
-let RUNOFF_MULT = 1.0;   // multiplier on the per-draw runoff sigma2 (slider; base is calibration-driven)
+let INFERRED = {};        // candidate -> runoff strength inferred (no head-to-head polls)
+let BOTH_CENTRE = false;  // run BOTH ens nominees (Attal + Philippe); else the single default centrist
+let RUNOFF_MULT = 1.0;    // multiplier on the per-draw runoff sigma2 (slider; base is calibration-driven)
 let RW = [], PE = [], INFL = [];  // per-calibration-draw arrays: drift sd, election-day error sd, runoff sigma2
 
 // ---- seeded RNG (stable results across re-renders) ----
@@ -64,7 +62,7 @@ d3.json("data/model.json").then(initModel).catch(err =>
 
 function initModel(model) {
   MODEL = model; UNIV = model.candidates; NAMES = UNIV.map(c => c.name);
-  UNIV.forEach(c => { POS[c.name] = c.pos; INFERRED[c.name] = !!c.runoff_inferred; });
+  UNIV.forEach(c => { INFERRED[c.name] = !!c.runoff_inferred; });
   applyDefault();
   RW = model.forward.rw_week_sd; PE = model.forward.poll_error; INFL = model.runoff.infl;
   buildPicker();
@@ -72,114 +70,58 @@ function initModel(model) {
   d3.select("#pick-reset").on("click", () => { applyDefault(); syncPicker(); update(false); });
   update(true);
 }
-// Default view = both centre nominees running (Attal + Philippe) when offsets are
-// shipped; otherwise the single-centrist default line-up.
+// The field is fixed: every "fixed" candidate (incl. Le Pen) plus the default
+// centre nominee (Philippe) always runs. The only choice is whether BOTH ens
+// nominees (Attal + Philippe) run, applying the model.both_centre offsets, or
+// just the single default centrist. No candidate can be dropped, so there is no
+// vote redistribution.
 function applyDefault() {
-  SELECTED = new Set(MODEL.default_lineup);
+  SELECTED = new Set(fixedNames());
+  const dc = defaultCentrist(); if (dc) SELECTED.add(dc);
   BOTH_CENTRE = !!MODEL.both_centre;
-  if (BOTH_CENTRE) CENTRE_NAMES().forEach(n => SELECTED.add(n));
+  if (BOTH_CENTRE) CENTRE().forEach(c => SELECTED.add(c.name));
 }
 
-// ---- candidate picker (structured choices) ----
-// Candidates sharing a `slot` are alternative occupants of ONE voter pool (they
-// are never co-polled), so picking one deselects its slot-mates. LR is a single
-// slot; the Left group mixes the free Greens with the exclusive socialist pool
-// (Glucksmann / Hollande / Faure). The centre requires at least one candidate.
-// "fixed" candidates (incl. Le Pen) are always in and not shown.
-const ROLE_GROUPS = [
-  { role: "left",   title: "Left (choose any)" },
-  { role: "centre", title: "Centre (choose one)" },
-  { role: "lr",     title: "Les Républicains (choose one)" }
-];
-const CENTRE_NAMES = () => UNIV.filter(c => c.role === "centre").map(c => c.name);
+// ---- candidate picker (single centre choice) ----
+const CENTRE = () => UNIV.filter(c => c.role === "centre");           // Attal, Philippe
 const fixedNames = () => UNIV.filter(c => c.role === "fixed").map(c => c.name);
+// the headline/default centrist (Philippe): the centre nominee in default_lineup
+const defaultCentrist = () =>
+  (MODEL.default_lineup || []).find(n => CENTRE().some(c => c.name === n))
+  || (CENTRE()[0] && CENTRE()[0].name);
 
 function buildPicker() {
   const box = d3.select("#candidate-picker").html("");
-  ROLE_GROUPS.forEach(g => {
-    const grp = UNIV.filter(c => c.role === g.role);
-    if (!grp.length) return;
-    const col = box.append("div").attr("class", "pbloc");
-    col.append("div").attr("class", "pbloc-h").text(g.title);
-    grp.forEach(c => {
-      const lab = col.append("label").attr("class", "pcand")
-        .classed("altslot", !!c.slot);
-      if (c.slot) lab.attr("title", "Alternative for one voter pool — picking this deselects its slot-mates");
-      lab.append("input").attr("class", "optcheck").attr("type", "checkbox")
-        .attr("data-name", c.name)
-        .attr("data-slot", c.slot || null)
-        .property("checked", SELECTED.has(c.name) && !(g.role === "centre" && BOTH_CENTRE))
-        .on("change", onPick);
-      lab.classed("off", !SELECTED.has(c.name));
-      lab.append("span").attr("class", "pdot").style("background", c.color);
-      lab.append("span").text(c.name);
-    });
-    // Centre only: a third mutually-exclusive choice that runs BOTH nominees,
-    // using the both-testing polls (model.both_centre offsets) rather than
-    // double-counting two sole-centrist latents.
-    if (g.role === "centre" && MODEL.both_centre && grp.length >= 2) {
-      const lab = col.append("label").attr("class", "pcand altslot")
-        .attr("title", "Hypothetical: both centre nominees run; centre levels come from polls testing both");
-      lab.append("input").attr("class", "bothcheck").attr("type", "checkbox")
-        .property("checked", BOTH_CENTRE).on("change", onBoth);
-      lab.classed("off", !BOTH_CENTRE);
-      lab.append("span").attr("class", "pdot").style("background", "#7B68A6");
-      lab.append("span").text("Both (Attal + Philippe)");
-    }
-  });
+  const centre = CENTRE();
+  if (centre.length < 2 || !MODEL.both_centre) return;
+  const names = centre.map(c => shortName(c.name)).join(" + ");
+  const col = box.append("div").attr("class", "pbloc");
+  col.append("div").attr("class", "pbloc-h").text("Centre nominee");
+  const lab = col.append("label").attr("class", "pcand altslot")
+    .attr("title", "Checked: both centre nominees run, with levels from polls testing both. "
+      + "Unchecked: only " + defaultCentrist() + " runs.");
+  lab.append("input").attr("class", "bothcheck").attr("type", "checkbox")
+    .property("checked", BOTH_CENTRE).on("change", onBoth);
+  lab.classed("off", !BOTH_CENTRE);
+  lab.append("span").attr("class", "pdot").style("background", "#7B68A6");
+  lab.append("span").text("Run both centrists (" + names + ")");
 }
 function onBoth() {
   BOTH_CENTRE = this.checked;
-  if (BOTH_CENTRE) CENTRE_NAMES().forEach(n => SELECTED.add(n));
-  else { // revert to the single default centrist
-    CENTRE_NAMES().forEach(n => SELECTED.delete(n));
-    const def = MODEL.default_lineup.find(n => CENTRE_NAMES().includes(n)) || CENTRE_NAMES()[0];
-    SELECTED.add(def);
+  if (BOTH_CENTRE) CENTRE().forEach(c => SELECTED.add(c.name));
+  else {                               // revert to the single default centrist
+    CENTRE().forEach(c => SELECTED.delete(c.name));
+    const dc = defaultCentrist(); if (dc) SELECTED.add(dc);
   }
-  syncPicker();
-  update(false);
-}
-function onPick() {
-  const name = this.getAttribute("data-name");
-  // Picking a single centrist exits both-centrists mode.
-  if (CENTRE_NAMES().includes(name) && BOTH_CENTRE) {
-    BOTH_CENTRE = false;
-    const bc = document.querySelector("#candidate-picker input.bothcheck");
-    if (bc) { bc.checked = false; d3.select(bc.parentNode).classed("off", true); }
-  }
-  // centre must never be empty: block unticking the last remaining centrist
-  if (!this.checked && CENTRE_NAMES().includes(name)) {
-    const anyCentre = d3.selectAll("#candidate-picker input.optcheck").nodes()
-      .some(el => el.checked && CENTRE_NAMES().includes(el.getAttribute("data-name")));
-    if (!anyCentre) { this.checked = true; return; }
-  }
-  // slot exclusivity: selecting one occupant deselects its slot-mates
-  const slot = this.getAttribute("data-slot");
-  if (slot && this.checked) {
-    const self = this;
-    d3.selectAll('#candidate-picker input.optcheck[data-slot="' + slot + '"]').each(function () {
-      if (this !== self) this.checked = false;
-    });
-  }
-  SELECTED = new Set(fixedNames());
-  d3.selectAll("#candidate-picker input.optcheck").each(function () {
-    if (this.checked) SELECTED.add(this.getAttribute("data-name"));
-    d3.select(this.parentNode).classed("off", !this.checked);
-  });
-  if (BOTH_CENTRE) CENTRE_NAMES().forEach(n => SELECTED.add(n));  // keep both in both-mode
+  d3.select(this.parentNode).classed("off", !BOTH_CENTRE);
   update(false);
 }
 function syncPicker() {
-  d3.selectAll("#candidate-picker input.optcheck").each(function () {
-    const name = this.getAttribute("data-name");
-    const on = SELECTED.has(name) && !(BOTH_CENTRE && CENTRE_NAMES().includes(name));
-    this.checked = on; d3.select(this.parentNode).classed("off", !on);
-  });
   const bc = document.querySelector("#candidate-picker input.bothcheck");
   if (bc) { bc.checked = BOTH_CENTRE; d3.select(bc.parentNode).classed("off", !BOTH_CENTRE); }
 }
 
-// ---- parameters panel: transfer toggle, p, d0, and candidate positions ----
+// ---- parameters panel: runoff-uncertainty knob ----
 function buildParams() {
   const recompute = debounce(() => update(false), 130);
   const slider = (host, label, min, max, step, get, set) => {
@@ -193,61 +135,23 @@ function buildParams() {
   };
 
   const g = d3.select("#param-globals").html("");
-  const t = g.append("label").attr("class", "pcand");
-  t.append("input").attr("type", "checkbox").property("checked", TRANSFER)
-    .on("change", function () { TRANSFER = this.checked; update(false); });
-  t.append("span").text("Model directional vote transfer when a candidate drops out");
-  const te = g.append("label").attr("class", "pcand");
-  te.append("input").attr("type", "checkbox").property("checked", TRANSFER_ESTIMATED)
-    .on("change", function () { TRANSFER_ESTIMATED = this.checked; update(false); });
-  te.append("span").text("Use estimated transfers where data-backed (else inverse-distance)");
-  slider(g, "Transfer locality  p  (higher = more local)", 0.5, 4, 0.1, () => P_EXP, v => P_EXP = v);
-  slider(g, "Abstention distance  d₀  (higher = fewer stay home)", 5, 60, 1, () => D0, v => D0 = v);
   slider(g, "Runoff uncertainty  ×σ₂  (scales the calibrated runoff spread)", 0, 2.5, 0.1, () => RUNOFF_MULT, v => RUNOFF_MULT = v);
 
-  const p = d3.select("#param-positions").html("");
-  // ordering is fixed: each slider is clamped between its neighbours, so the
-  // user calibrates DISTANCE, not who is to the left of whom.
-  const ordered = UNIV.filter(c => c.role !== "excluded").sort((a, b) => POS[a.name] - POS[b.name]);
-  const order = ordered.map(c => c.name);
-  ordered.forEach((c, idx) => {
-    const row = p.append("div").attr("class", "posrow");
-    row.append("span").attr("class", "pdot").style("background", c.color);
-    row.append("span").attr("class", "posname").text(c.name);
-    const val = row.append("span").attr("class", "posval").text(Math.round(POS[c.name]));
-    row.append("input").attr("type", "range").attr("min", 0).attr("max", 100).attr("step", 1)
-      .property("value", POS[c.name])
-      .on("input", function () {
-        const lo = idx > 0 ? POS[order[idx - 1]] : 0;
-        const hi = idx < order.length - 1 ? POS[order[idx + 1]] : 100;
-        const v = Math.max(lo, Math.min(hi, +this.value));
-        this.value = v; POS[c.name] = v; val.text(v); recompute();
-      });
-  });
-
   d3.select("#params-reset").on("click", () => {
-    TRANSFER = true; P_EXP = 2; D0 = 30; RUNOFF_MULT = 1.0;
-    UNIV.forEach(c => POS[c.name] = c.pos);
+    RUNOFF_MULT = 1.0;
     buildParams(); update(false);
   });
 }
 
 function update(first) {
   const sel = NAMES.filter(n => SELECTED.has(n));
-  const banner = document.getElementById("scenario-banner");
   if (sel.length < 2) {
-    if (banner) banner.hidden = true;
     d3.select("#pick-warning").style("display", null);
     clearCharts();
     return;
   }
   d3.select("#pick-warning").style("display", "none");
   const view = computeView(sel);
-  // Banner only when votes are actually redistributed (a candidate removed and
-  // their vote reallocated). A poll-driven slot swap -- e.g. choosing Attal
-  // instead of Philippe -- leaves every candidate at its own estimate, so no
-  // banner: it isn't an opt-out into an assumption.
-  if (banner) banner.hidden = !(TRANSFER && view.redistributed);
   first ? render(view) : renderAll(view);
 }
 function clearCharts() {
@@ -267,8 +171,6 @@ function computeView(sel) {
   const inflOf = d => INFL[d % INFL.length] * RUNOFF_MULT;
   const L = sel.length;
   const meta = n => UNIV[NAMES.indexOf(n)];
-  const isRN = n => meta(n).party === "RN";
-  const inSel = new Set(sel);
   // per-draw runoff strengths: every candidate ships draws now -- own posterior
   // where we have head-to-head data, else a wide bloc-anchored fallback (flagged
   // runoff_inferred). Uncertainty propagates either way.
@@ -279,83 +181,11 @@ function computeView(sel) {
   const BC = MODEL.both_centre || {};
   const centreOff = (n, d) => (BOTH_CENTRE && BC[n]) ? BC[n][d % BC[n].length] : 0;
 
-  // ---- field R + directional transfer of dropped-out candidates ----
-  // With transfer ON we score the MAXIMAL field (everyone who could run), then
-  // redistribute anyone the user unticked to the remaining candidates by
-  // inverse-distance weighting in left-right space, with an abstention outlet.
-  let R;
-  if (TRANSFER) {
-    // Reference field = the default line-up (so unticking a default candidate is
-    // a drop-out that transfers) plus any off-by-default candidate the user has
-    // added (they simply join the race, no transfer).
-    // Each exclusive slot collapses to ONE representative -- the selected occupant
-    // if any, else the default one -- so two alternatives of the same voter pool
-    // (e.g. Glucksmann + Hollande) can never both enter the softmax and double-count.
-    const slots = [...new Set(UNIV.map(c => c.slot).filter(Boolean))];
-    const slotReps = slots.flatMap(s => {
-      // both-centrists mode: the ens slot yields BOTH occupants, not one rep.
-      if (s === "ens" && BOTH_CENTRE)
-        return UNIV.filter(c => c.slot === "ens").map(c => c.name);
-      const rep = sel.find(n => meta(n).slot === s) || MODEL.default_lineup.find(n => meta(n).slot === s);
-      return rep ? [rep] : [];
-    });
-    const isTogFree = n => ["left", "centre", "lr"].includes(meta(n).role) && !meta(n).slot;
-    const fixed = UNIV.filter(c => c.role === "fixed").map(c => c.name);
-    const baseTog = MODEL.default_lineup.filter(isTogFree);
-    const selTog = sel.filter(isTogFree);
-    R = [...fixed, ...slotReps, ...baseTog, ...selTog];
-    R = R.filter((n, i) => R.indexOf(n) === i);
-  } else {
-    R = sel.slice();
-  }
+  // ---- field R = the selected line-up ----
+  // The field is fixed (every selected candidate runs; none can be dropped), so
+  // the softmax over the selection already gives the shares -- no redistribution.
+  const R = sel.slice();
   const Ridx = R.map(n => NAMES.indexOf(n)), LR = R.length;
-  const selPosInR = sel.map(n => R.indexOf(n));
-  const dropped = R.map((_, i) => i).filter(i => !inSel.has(R[i]));
-
-  // transfer weights: each dropped candidate -> running candidates (+ abstain).
-  // Data-backed candidates use the ESTIMATED transfer vector (fracs of their vote
-  // to each recipient; un-transferred remainder abstains). Everyone else falls
-  // back to a gravity ASSUMPTION: a recipient's pull is its running SIZE times
-  // inverse-distance in left-right space, so a tiny neighbour can't absorb a
-  // disproportionate share purely for being closest. The abstention outlet is
-  // still set by distance alone (unchanged); only the transferred remainder is
-  // split by size x inverse-distance, evaluated per draw since sizes vary.
-  const TR = MODEL.transfers || {};
-  const XF = dropped.map(d => {
-    const name = R[d];
-    if (TR[name] && TRANSFER_ESTIMATED) {
-      const to = TR[name].to || {}, w = new Float64Array(L);
-      for (let s = 0; s < L; s++) w[s] = to[sel[s]] || 0;      // vote to absent recipients + estimated abstention stays home
-      return { d, est: true, w };
-    }
-    const pd = POS[name] ?? 50, dw = new Float64Array(L);
-    let sdw = 0;
-    for (let s = 0; s < L; s++) {
-      const dist = Math.max(1, Math.abs(pd - (POS[sel[s]] ?? 50)));
-      dw[s] = Math.pow(1 / dist, P_EXP); sdw += dw[s];
-    }
-    const aw = Math.pow(1 / Math.max(1, D0), P_EXP);           // abstention anchor (distance only)
-    return { d, est: false, dw, tf: sdw > 0 ? sdw / (sdw + aw) : 0 };  // tf = fraction that transfers (vs abstains)
-  });
-
-  // softmax over R -> shares over sel (redistribute dropped, renormalise)
-  function project(e) {
-    const base = new Float64Array(L);
-    for (let s = 0; s < L; s++) base[s] = e[selPosInR[s]];
-    const size = Float64Array.from(base);                      // pre-transfer running sizes (this draw)
-    for (const x of XF) {
-      const ed = e[x.d];
-      if (x.est) { for (let s = 0; s < L; s++) base[s] += ed * x.w[s]; continue; }
-      const dw = x.dw;
-      let sden = 0; for (let s = 0; s < L; s++) sden += size[s] * dw[s];  // gravity: size x inverse-distance
-      if (sden > 0) { for (let s = 0; s < L; s++) base[s] += ed * x.tf * (size[s] * dw[s]) / sden; }
-      else { let dd = 0; for (let s = 0; s < L; s++) dd += dw[s];         // degenerate (no size): distance only
-             if (dd > 0) for (let s = 0; s < L; s++) base[s] += ed * x.tf * dw[s] / dd; }
-    }
-    let tot = 0; for (let s = 0; s < L; s++) tot += base[s];
-    if (tot > 0) for (let s = 0; s < L; s++) base[s] /= tot;
-    return base;
-  }
 
   // ---- trajectory: shared forward shock per (draw, field-cand) => smooth fan ----
   const zf = Array.from({ length: Dt }, () => Float64Array.from({ length: LR }, randn));
@@ -368,7 +198,7 @@ function computeView(sel) {
         const c = Ridx[i], off = centreOff(R[i], d);
         latR[i] = (w <= lw ? beta[d][c][w - 1] : beta[d][c][lw - 1] + rwOf(d) * Math.sqrt(w - lw) * zf[d][i]) + off;
       }
-      const sh = project(softmax(latR));
+      const sh = softmax(latR);
       for (let s = 0; s < L; s++) col[s][d] = sh[s] * 100;
     }
     for (let s = 0; s < L; s++) {
@@ -390,7 +220,7 @@ function computeView(sel) {
       const latR = new Array(LR);
       for (let i = 0; i < LR; i++)
         latR[i] = beta[d][Ridx[i]][lw - 1] + rwOf(d) * Math.sqrt(W - lw) * randn() + peOf(d) * randn() + centreOff(R[i], d);
-      const sh = project(softmax(latR));
+      const sh = softmax(latR);
       for (let s = 0; s < L; s++) perCand[s][e] = sh[s] * 100;
       let i1 = 0, i2 = 1; if (sh[i2] > sh[i1]) { i1 = 1; i2 = 0; }
       for (let i = 2; i < L; i++) { if (sh[i] > sh[i1]) { i2 = i1; i1 = i; } else if (sh[i] > sh[i2]) i2 = i; }
@@ -434,10 +264,6 @@ function computeView(sel) {
   return {
     updated: MODEL.updated, election_date_r1: MODEL.election_date_r1,
     lineup_note: `${L} candidates in this scenario.`,
-    // true only when a candidate was removed and their vote reallocated -- a
-    // real assumption. A slot swap (e.g. Attal for Philippe) leaves dropped
-    // empty: every candidate is at its own poll-driven estimate, no banner.
-    redistributed: dropped.length > 0,
     candidates: cands, sims,
     round1: { dates: MODEL.weeks.dates, trajectory: traj, draw_candidates: sel, draws,
               polls, last_poll_date: MODEL.weeks.dates[lw - 1] },

@@ -14,22 +14,13 @@ author_profile: false
     <section class="panel">
       <h2>Who's running?</h2>
       <div id="pick-body">
-      <p class="note">Choose among the following. On the left, you can choose to include the Green Party
-      candidate or not, and you can choose one of the three Socialist candidates. At the center, choose
-      Attal, Philippe, or Both. For Les Républicains, pick one or
-      none. Only candidates polled recently enough to estimate are shown.
-      All the "fixed" major and minor candidates (including Le Pen since she confirmed she was running)
-      are always included. The forecast recomputes simulated results from the posterior draws.
+      <p class="note">The field is fixed to the major and minor candidates currently being polled. Some certainty remains at the centre. You can
+      select whether both Attal and Philippe run, or Philippe only. Both
+      scenarios are estimated directly from the polls: the &ldquo;both&rdquo; levels come from the
+      surveys that test Attal and Philippe together. The forecast recomputes simulated results from the posterior draws.
         <button id="pick-reset" class="linklike">reset to default</button></p>
       <div id="candidate-picker"></div>
       <p id="pick-warning" class="warn" style="display:none">Select at least two candidates.</p>
-      <div id="scenario-banner" class="scenario-note" hidden>
-        <b>Scenario assumption, not simply poll-driven prediction.</b> You have changed the field from
-        the default. The votes of candidates you remove are redistributed to those still running:
-        estimated from head-to-head polls where we have them (Attal, Philippe), and otherwise by an explicit
-        size-weighted proximity assumption (nearer, larger candidates absorb more; tune it under <i>Parameters &amp; assumptions</i>).
-        The poll-derived part is the current standing of the candidates who are running.
-      </div>
       </div>
     </section>
 
@@ -43,9 +34,7 @@ author_profile: false
         <li>The panel <i>First-round vote intention over time</i> shows the polls used in the model, which tell us where candidates appear to stand today.</li>
         <li>The panel <i>First-round in 1,000 simulated elections</i> displays the first-round scores in 1,000 simulations.</li>
         <li>The last panel, <i>Most likely runoff match-ups</i>, shows the simulated runoff results in the most frequent pairings coming out of the simulated first rounds.</li>
-        <li><b>Note 1</b>: past French elections tell me how uncertain the estimates should become between now and election day.</li>
-        <li><b>Note 2</b> candidate withdrawals are scenarios, not just predictions. They layer an explicit
-          assumption about where a departing candidate's voters go on top of the poll-driven forecast.</li>
+        <li><b>Note</b>: past French elections tell me how uncertain the estimates should become between now and election day.</li>
       </ul>
       </div>
     </section>
@@ -88,23 +77,14 @@ author_profile: false
 
     <section class="panel">
       <button id="params-toggle" class="method-btn" aria-expanded="false">
-        &#9656;&nbsp; Parameters &amp; assumptions</button>
+        &#9656;&nbsp; Parameter</button>
       <div id="params-body" class="method-body" hidden>
-        <p class="note">When you untick a candidate, they &ldquo;drop out&rdquo; and their vote is
-          redistributed to the remaining candidates by size-weighted inverse-distance weighting on a
-          left&ndash;right axis (nearer and larger candidates receive more), with a proportion of abstention for voters
-          who would rather stay home than vote for anyone but their favorite candidate. These positions
-          and knobs are explicit <i>assumptions</i> below: adjust them and everything is recomputed.
+        <p class="note">The runoff outcome carries an irreducible uncertainty calibrated from past
+          elections (see the methodology). The knob below scales that spread (&times;&sigma;<sub>2</sub>)
+          if you want to explore a wider or narrower runoff; everything is recomputed.
           <button id="params-reset" class="linklike">Reset parameters</button></p>
 
         <div id="param-globals"></div>
-
-        <h3>Candidate positions&nbsp; (0 = far left &nbsp;&rarr;&nbsp; 100 = far right)</h3>
-
-        <p class="note">The left-right ordering is fixed: each slider is stuck
-          between its neighbours. You therefore calibrate distances, not who sits to the left of whom.</p>
-
-        <div id="param-positions"></div>
 
       </div>
     </section>
@@ -129,11 +109,11 @@ author_profile: false
         <i>forecast-uncertainty</i> parameters &mdash; how fast uncertainty grows toward election day, and the
         irreducible election-day poll error &mdash; are calibrated on the 2012, 2017, and 2022 elections. Three cycles
         is not a lot of history, so these are estimated with real uncertainty. Everything is fit in Stan. This page
-        recomputes the forecast for the candidate line-up you select from the posterior draws.</p>
+        recomputes the forecast for the centre scenario you select from the posterior draws.</p>
         
         <p>This is work in progress and I appreciate your feedback. Credits (but no responsibility for my errors) are due to
-        Ronald Neath, who taught the Bayesian Statistics course I took in the Fall of 2023. I used LLMs to think through part of the modeling,
-        and for a lot of the dynamic visualization (I have no prior D3.js expertise). The data comes from <a href="https://fr.wikipedia.org/wiki/Liste_de_sondages_sur_l%27%C3%A9lection_pr%C3%A9sidentielle_fran%C3%A7aise_de_2027" target="_blank" rel="noopener">Wikipedia</a>.</p>
+        Ronald Neath, who taught the Bayesian Statistics course I took in the Fall of 2023. I used LLMs to think through part of the modeling, write a big part of the code,
+        and for the dynamic visualization (I have no prior D3.js expertise). The data comes from <a href="https://fr.wikipedia.org/wiki/Liste_de_sondages_sur_l%27%C3%A9lection_pr%C3%A9sidentielle_fran%C3%A7aise_de_2027" target="_blank" rel="noopener">Wikipedia</a>.</p>
 
         <h3>1&nbsp;&middot;&nbsp;First round: latent support and random walk</h3>
         <p>Consider candidates <i>c</i> = 1,&hellip;,<i>C</i> over weeks <i>w</i> = 1,&hellip;,<i>W</i>
@@ -324,15 +304,11 @@ author_profile: false
         <i>s</i><sub>rw</sub> = &radic;<i>c</i> &middot; &radic;7 &middot; <i>&kappa;</i> and
         <i>s</i><sub>err</sub> = <i>a</i> &middot; <i>&kappa;</i>.</p>
 
-        <div class="box"><span class="term">Removing a candidate is a scenario, not a renormalisation</span>
-        For the default field, and for swapping one bloc nominee for another, the line-up share is exactly the softmax
-        above. But when a candidate is withdrawn, their support is not simply left to renormalise
-        proportionally over the rest (which is all the softmax denominator would do). It is reallocated to the
-        remaining candidates using estimated head-to-head transfers where the data support them, and otherwise by
-        size-weighted inverse-distance weighting on the left&ndash;right axis (a recipient&rsquo;s pull is its current
-        size times proximity, so a tiny neighbour cannot absorb a disproportionate share), with an abstention outlet (as described in the
-        <i>Parameters &amp; assumptions</i> section). This is why a withdrawal is flagged on the page as an explicit
-        assumption rather than a poll-driven prediction.</div>
+        <div class="box"><span class="term">Centre scenario: both nominees or one</span>
+        The one choice is at the centre: run Philippe alone, or run both Attal and Philippe.
+        These are two directly-estimated scenarios. When both run, each centre nominee's latent support is shifted by
+        an offset measured from the surveys that test the two together, so the shared centre is not
+        double-counted. when only Philippe runs, his only-nominee latent is used.</div>
 
         <h3>4&nbsp;&middot;&nbsp;Runoff: Bradley&ndash;Terry model</h3>
         
