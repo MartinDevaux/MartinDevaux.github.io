@@ -12,25 +12,13 @@ author_profile: false
     </header>
 
     <section class="panel">
-      <h2>Who's running?</h2>
-      <div id="pick-body">
-      <p class="note">The field is fixed to the major and minor candidates currently being polled. Some certainty remains at the centre. You can
-      select whether both Attal and Philippe run, or Philippe only. Both
-      scenarios are estimated directly from the polls: the &ldquo;both&rdquo; levels come from the
-      surveys that test Attal and Philippe together. The forecast recomputes simulated results from the posterior draws.
-        <button id="pick-reset" class="linklike">reset to default</button></p>
-      <div id="candidate-picker"></div>
-      <p id="pick-warning" class="warn" style="display:none">Select at least two candidates.</p>
-      </div>
-    </section>
-
-    <section class="panel">
       <button id="howto-toggle" class="method-btn" aria-expanded="false">&#9656;&nbsp; How to read this forecast</button>
       <div id="howto-body" hidden>
       <ul class="note howto">
         <li>All panels are interactive: hover over the plots to read more information.</li>
         <li>This model uses polls to simulate the upcoming French presidential election 1,000 times.</li>
-        <li>The panel <i>Who wins the presidency?</i> reports the share of simulations won by each candidate.</li>
+        <li>The panel <i>Current forecast: Who wins the presidency?</i> reports the share of simulations won by each candidate.</li>
+        <li>The panel <i>Probabilities of victory over time?</i> reports the evolution of these shares since July 1st, 2026.</li>
         <li>The panel <i>First-round vote intention over time</i> shows the polls used in the model, which tell us where candidates appear to stand today.</li>
         <li>The panel <i>First-round in 1,000 simulated elections</i> displays the first-round scores in 1,000 simulations.</li>
         <li>The last panel, <i>Most likely runoff match-ups</i>, shows the simulated runoff results in the most frequent pairings coming out of the simulated first rounds.</li>
@@ -40,13 +28,30 @@ author_profile: false
     </section>
 
     <section class="panel">
-      <h2>Who wins the presidency?</h2>
+      <h2 class="sm">Centre candidate</h2>
+      <p class="note">The field is fixed to the major and minor candidates currently being polled,
+      but some uncertainty remains at the centre.
+      You can select whether both Attal and Philippe run, or Philippe only.</p>
+      <div id="candidate-picker"></div>
+      <p id="pick-warning" class="warn" style="display:none">Select at least two candidates.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Current forecast: who wins the presidency?</h2>
       <p class="note">Each dot is one simulated election, placed in the row of the
         candidate who won it &mdash; so the width of each cloud is that
         candidate's chance of winning. Hover a dot to see that simulation's
         first-round result and the runoff it produced.
         (<span id="lineup-note"></span>)</p>
       <div id="windots"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Probabilities of victory over time</h2>
+      <p class="note">Each line is the model's estimated chance of winning the presidency as
+        of every poll release since September.</p>
+      <div id="pwin"></div>
+      <div id="pwin-legend" class="legend"></div>
     </section>
 
     <section class="panel">

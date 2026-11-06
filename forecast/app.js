@@ -10,6 +10,19 @@ function shortName(n) {
     ? w.slice(-2).join(" ") : w[w.length - 1];
 }
 const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000;
+const colorOf = n => COLOR[n] || (NAMES.indexOf(n) >= 0 ? UNIV[NAMES.indexOf(n)].color : null) || "#888";
+// stop the first/last x-axis tick labels from spilling past the SVG edges
+function insetAxisEdgeLabels(axisG) {
+  const t = axisG.selectAll(".tick text"), n = t.size();
+  t.attr("text-anchor", (_, i) => i === 0 ? "start" : i === n - 1 ? "end" : "middle");
+}
+// stack overlapping end-labels upward from the axis so a low-share cluster stays
+// readable and never spills below the chart. Mutates each label's .y in place.
+function decollideUp(labels, bottomY, LH = 11) {
+  labels.sort((a, b) => b.y - a.y);                 // bottom-most first
+  let limit = bottomY;
+  labels.forEach(d => { if (d.y > limit) d.y = limit; limit = d.y - LH; });
+}
 
 // collapsible-section toggles (work independently of data load)
 function wireToggle(btnId, bodyId, label) {
@@ -31,6 +44,8 @@ const hideTip = () => tip.style("opacity", 0);
 
 let COLOR = {}, STATS = {}, DATA = null;      // current rendered view
 let MODEL = null, UNIV = [], NAMES = [], SELECTED = new Set();
+let PWIN = null;                              // P(win)-over-time history (data/pwin_history.json)
+const PWIN_SINCE = "2026-09-01";              // P(win) chart shows dates on/after this
 let INFERRED = {};        // candidate -> runoff strength inferred (no head-to-head polls)
 let BOTH_CENTRE = false;  // run BOTH ens nominees (Attal + Philippe); else the single default centrist
 let RUNOFF_MULT = 1.0;    // multiplier on the per-draw runoff sigma2 (slider; base is calibration-driven)
@@ -56,7 +71,10 @@ function quantiles(arr, ps) {
 }
 
 // =====================================================================
-d3.json("data/model.json").then(initModel).catch(err =>
+Promise.all([
+  d3.json("data/model.json"),
+  d3.json("data/pwin_history.json").catch(() => null)   // optional: chart self-hides if absent
+]).then(([model, pwin]) => { PWIN = pwin; initModel(model); }).catch(err =>
   d3.select("#app").append("p").style("color", "crimson")
     .text("Could not load data/model.json — run R/08_export_draws.R first. " + err));
 
@@ -90,21 +108,24 @@ const defaultCentrist = () =>
   (MODEL.default_lineup || []).find(n => CENTRE().some(c => c.name === n))
   || (CENTRE()[0] && CENTRE()[0].name);
 
+function dimToggleSides(row) {   // highlight the active side, dim the inactive one
+  d3.select(row).select(".toggle-label.left").classed("off", BOTH_CENTRE);
+  d3.select(row).select(".toggle-label.right").classed("off", !BOTH_CENTRE);
+}
 function buildPicker() {
   const box = d3.select("#candidate-picker").html("");
   const centre = CENTRE();
   if (centre.length < 2 || !MODEL.both_centre) return;
-  const names = centre.map(c => shortName(c.name)).join(" + ");
-  const col = box.append("div").attr("class", "pbloc");
-  col.append("div").attr("class", "pbloc-h").text("Centre nominee");
-  const lab = col.append("label").attr("class", "pcand altslot")
-    .attr("title", "Checked: both centre nominees run, with levels from polls testing both. "
-      + "Unchecked: only " + defaultCentrist() + " runs.");
+  const row = box.append("div").attr("class", "toggle-row")
+    .attr("title", "Left: only " + defaultCentrist() + " runs. Right: both centre nominees run, "
+      + "with levels from polls testing both.");
+  row.append("span").attr("class", "toggle-label left").text(shortName(defaultCentrist()) + " only");
+  const lab = row.append("label").attr("class", "switch");
   lab.append("input").attr("class", "bothcheck").attr("type", "checkbox")
     .property("checked", BOTH_CENTRE).on("change", onBoth);
-  lab.classed("off", !BOTH_CENTRE);
-  lab.append("span").attr("class", "pdot").style("background", "#7B68A6");
-  lab.append("span").text("Run both centrists (" + names + ")");
+  lab.append("span").attr("class", "slider");
+  row.append("span").attr("class", "toggle-label right").text("both candidates");
+  dimToggleSides(row.node());
 }
 function onBoth() {
   BOTH_CENTRE = this.checked;
@@ -113,12 +134,12 @@ function onBoth() {
     CENTRE().forEach(c => SELECTED.delete(c.name));
     const dc = defaultCentrist(); if (dc) SELECTED.add(dc);
   }
-  d3.select(this.parentNode).classed("off", !BOTH_CENTRE);
+  dimToggleSides(this.closest(".toggle-row"));
   update(false);
 }
 function syncPicker() {
   const bc = document.querySelector("#candidate-picker input.bothcheck");
-  if (bc) { bc.checked = BOTH_CENTRE; d3.select(bc.parentNode).classed("off", !BOTH_CENTRE); }
+  if (bc) { bc.checked = BOTH_CENTRE; dimToggleSides(bc.closest(".toggle-row")); }
 }
 
 // ---- parameters panel: runoff-uncertainty knob ----
@@ -156,7 +177,7 @@ function update(first) {
 }
 function clearCharts() {
   d3.select("#matchups").html("");
-  ["#windots", "#fan", "#sim"].forEach(s => d3.select(s).select("svg").remove());
+  ["#windots", "#fan", "#pwin", "#sim"].forEach(s => d3.select(s).select("svg").remove());
 }
 
 // =====================================================================
@@ -188,20 +209,29 @@ function computeView(sel) {
   const Ridx = R.map(n => NAMES.indexOf(n)), LR = R.length;
 
   // ---- trajectory: shared forward shock per (draw, field-cand) => smooth fan ----
+  // first_week: a candidate only polled partway through (e.g. a late declaration)
+  // enters the field at their first observed week. Before that they are excluded
+  // from the week's softmax -- so the rest of the field keeps its pre-entry levels
+  // -- and their own line is left null (broken) until they appear.
+  const fwR = R.map(n => Math.max(1, meta(n).first_week || 1));
   const zf = Array.from({ length: Dt }, () => Float64Array.from({ length: LR }, randn));
   const traj = {}; sel.forEach(n => traj[n] = { p10: [], p50: [], p90: [] });
   for (let w = 1; w <= W; w++) {
-    const col = sel.map(() => new Float64Array(Dt));
+    const inW = [];                       // field indices present by week w (all, once forecasting)
+    for (let i = 0; i < LR; i++) if (w > lw || fwR[i] <= w) inW.push(i);
+    const col = sel.map(() => null);
+    inW.forEach(i => col[i] = new Float64Array(Dt));
     for (let d = 0; d < Dt; d++) {
-      const latR = new Array(LR);
-      for (let i = 0; i < LR; i++) {
-        const c = Ridx[i], off = centreOff(R[i], d);
-        latR[i] = (w <= lw ? beta[d][c][w - 1] : beta[d][c][lw - 1] + rwOf(d) * Math.sqrt(w - lw) * zf[d][i]) + off;
+      const latR = new Array(inW.length);
+      for (let j = 0; j < inW.length; j++) {
+        const i = inW[j], c = Ridx[i], off = centreOff(R[i], d);
+        latR[j] = (w <= lw ? beta[d][c][w - 1] : beta[d][c][lw - 1] + rwOf(d) * Math.sqrt(w - lw) * zf[d][i]) + off;
       }
       const sh = softmax(latR);
-      for (let s = 0; s < L; s++) col[s][d] = sh[s] * 100;
+      for (let j = 0; j < inW.length; j++) col[inW[j]][d] = sh[j] * 100;
     }
     for (let s = 0; s < L; s++) {
+      if (col[s] === null) { traj[sel[s]].p10.push(null); traj[sel[s]].p50.push(null); traj[sel[s]].p90.push(null); continue; }
       const q = quantiles(col[s], [.1, .5, .9]);
       traj[sel[s]].p10.push(r2(q[0])); traj[sel[s]].p50.push(r2(q[1])); traj[sel[s]].p90.push(r2(q[2]));
     }
@@ -288,13 +318,14 @@ function render(data) {                 // first load: scroll-triggered animatio
   prep(data);
   wire("#windots", () => winDots(DATA));
   wire("#fan", () => fanChart(DATA));
+  wire("#pwin", () => pwinChart());
   wire("#sim", () => simDots(DATA));
   wire("#matchups", () => matchups(DATA));
 }
 function renderAll(data) {               // recompute: redraw all now
   prep(data);
   clearCharts();
-  winDots(DATA); fanChart(DATA); simDots(DATA); matchups(DATA);
+  winDots(DATA); fanChart(DATA); pwinChart(); simDots(DATA); matchups(DATA);
 }
 let lastW = window.innerWidth;
 window.addEventListener("resize", debounce(() => {
@@ -302,7 +333,7 @@ window.addEventListener("resize", debounce(() => {
   // address bar showing/hiding while scrolling). Charts self-clear, so no dupes.
   if (!DATA || window.innerWidth === lastW) return;
   lastW = window.innerWidth;
-  winDots(DATA, false); fanChart(DATA, false); simDots(DATA, false); matchups(DATA, false);
+  winDots(DATA, false); fanChart(DATA, false); pwinChart(false); simDots(DATA, false); matchups(DATA, false);
 }, 200));
 function inView(node, cb) {
   const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.disconnect(); cb(); } }),
@@ -383,7 +414,7 @@ function winHtml(s, cols) {
 function fanChart(data, animate = true) {
   const el = document.getElementById("fan");
   const W = el.clientWidth || 860, H = 380;
-  const m = { top: 16, right: 58, bottom: 26, left: 34 };
+  const m = { top: 16, right: 88, bottom: 26, left: 34 };   // right margin holds the end labels (longest: "Dupont-Aignan")
   const parse = d3.timeParse("%Y-%m-%d");
   const dates = data.round1.dates.map(parse);
   const elec = parse(data.election_date_r1);
@@ -405,8 +436,8 @@ function fanChart(data, animate = true) {
     .attr("font-size", 10).attr("fill", "#aaa").text("polls");
   svg.append("text").attr("x", gx + 5).attr("y", m.top - 4).attr("font-size", 10).attr("fill", "#8a97c9").text("forecast");
 
-  svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`)
-    .call(d3.axisBottom(x).ticks(6).tickFormat(d3.timeFormat("%b %Y")));
+  insetAxisEdgeLabels(svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`)
+    .call(d3.axisBottom(x).ticks(6).tickFormat(d3.timeFormat("%b %Y"))));
   svg.append("g").attr("class", "axis").attr("transform", `translate(${m.left},0)`)
     .call(d3.axisLeft(y).ticks(6).tickFormat(d => d + "%"));
   y.ticks(6).forEach(t => svg.append("line").attr("class", "gridline")
@@ -416,22 +447,30 @@ function fanChart(data, animate = true) {
   svg.append("line").attr("class", "elec-line").attr("x1", x(elec)).attr("x2", x(elec)).attr("y1", m.top).attr("y2", H - m.bottom);
   svg.append("text").attr("x", x(elec)).attr("y", m.top - 4).attr("text-anchor", "middle").attr("font-size", 10).attr("fill", "#999").text("election");
 
-  const area = d3.area().x((_, i) => x(dates[i])).y0(d => y(d[0])).y1(d => y(d[1])).curve(d3.curveMonotoneX);
-  const line = d3.line().x((_, i) => x(dates[i])).y(d => y(d)).curve(d3.curveMonotoneX);
+  const area = d3.area().defined(d => d[0] != null).x((_, i) => x(dates[i])).y0(d => y(d[0])).y1(d => y(d[1])).curve(d3.curveMonotoneX);
+  const line = d3.line().defined(d => d != null).x((_, i) => x(dates[i])).y(d => y(d)).curve(d3.curveMonotoneX);
+  // small/noisy candidates keep their line + legend entry but drop the right-side
+  // end label, which otherwise clutters the low cluster
+  const NO_LABEL = new Set(["Marine Tondelier", "Fabien Roussel", "Nicolas Dupont-Aignan", "Nathalie Arthaud"]);
+  const labels = [];
   names.forEach((n, k) => {
     const tr = data.round1.trajectory[n], col = COLOR[n] || "#888";
     const band = tr.p10.map((lo, i) => [lo, tr.p90[i]]);
     const ribbon = svg.append("path").datum(band).attr("fill", col).attr("opacity", animate ? 0 : 0.1).attr("d", area).style("pointer-events", "none");
     const path = svg.append("path").datum(tr.p50).attr("fill", "none").attr("stroke", col).attr("stroke-width", 1.8).attr("d", line).style("pointer-events", "none");
-    const li = tr.p50.length - 1;
-    const label = svg.append("text").attr("x", x(dates[li]) + 4).attr("y", y(tr.p50[li]) + 3)
-      .attr("font-size", 10).attr("fill", col).attr("opacity", animate ? 0 : 1).style("pointer-events", "none").text(shortName(n));
+    let li = tr.p50.length - 1; while (li > 0 && tr.p50[li] == null) li--;
+    if (tr.p50[li] != null && !NO_LABEL.has(n)) labels.push({ col, x: x(dates[li]) + 4, y: y(tr.p50[li]) + 3, txt: shortName(n) });
     if (animate) {
       const Ln = path.node().getTotalLength();
       path.attr("stroke-dasharray", `${Ln} ${Ln}`).attr("stroke-dashoffset", Ln).transition().delay(200).duration(1400).ease(d3.easeCubicInOut).attr("stroke-dashoffset", 0);
       ribbon.transition().delay(200 + k * 30).duration(900).attr("opacity", 0.1);
-      label.transition().delay(1500).duration(500).attr("opacity", 1);
     }
+  });
+  decollideUp(labels, H - m.bottom - 1);   // keep the bottom-most label just clear of the x-axis
+  labels.forEach(d => {
+    const t = svg.append("text").attr("x", d.x).attr("y", d.y).attr("font-size", 10)
+      .attr("fill", d.col).attr("opacity", animate ? 0 : 1).style("pointer-events", "none").text(d.txt);
+    if (animate) t.transition().delay(1500).duration(500).attr("opacity", 1);
   });
 
   const focus = svg.append("g").style("display", "none");
@@ -448,8 +487,9 @@ function fanChart(data, animate = true) {
       i = i <= 0 ? 0 : i >= dates.length ? dates.length - 1 : (x.invert(px) - dates[i - 1] < dates[i] - x.invert(px) ? i - 1 : i);
       const sx = x(dates[i]);
       focus.select("line.crosshair").attr("x1", sx).attr("x2", sx);
-      names.forEach((n, k) => fdots[k].attr("cx", sx).attr("cy", y(data.round1.trajectory[n].p50[i])));
-      const rows = names.map(n => ({ n, v: data.round1.trajectory[n].p50[i] })).sort((a, b) => b.v - a.v)
+      names.forEach((n, k) => { const v = data.round1.trajectory[n].p50[i];
+        fdots[k].style("display", v == null ? "none" : null).attr("cx", sx).attr("cy", v == null ? 0 : y(v)); });
+      const rows = names.map(n => ({ n, v: data.round1.trajectory[n].p50[i] })).filter(o => o.v != null).sort((a, b) => b.v - a.v)
         .map(o => `<div class="tt-row"><span class="tt-sw" style="background:${COLOR[o.n]}"></span>${o.n}<b>${o.v.toFixed(1)}%</b></div>`).join("");
       const kind = dates[i] > gen ? "forecast" : "estimate";
       showTip(`<div class="tt-h">${fmtDate(data.round1.dates[i])} <span class="tt-sub">· predicted (${kind})</span></div>${rows}`);
@@ -484,6 +524,91 @@ function pollHtml(poll, highlight) {
   const rows = poll.scores.slice().sort((a, b) => b.pct - a.pct).map(s =>
     `<div class="tt-row${s.name === highlight ? " tt-hi" : ""}"><span class="tt-sw" style="background:${COLOR[s.name] || "#888"}"></span>${s.name}<b>${s.pct}%</b></div>`).join("");
   return `<div class="tt-h">${fmtDate(poll.date)} <span class="tt-sub">· ${poll.pollster}${poll.n ? " · n=" + poll.n : ""}</span></div>${rows}`;
+}
+
+/* ---- 2b. P(win) over time (precomputed replay; switches on the centre toggle) ---- */
+function pwinChart(animate = true) {
+  const host = document.getElementById("pwin");
+  if (!host) return;
+  const panel = host.closest(".panel");
+  d3.select("#pwin").selectAll("svg").remove();
+  // precomputed history is optional: hide the whole panel if it is missing
+  if (!PWIN || !PWIN.scenarios) { if (panel) panel.style.display = "none"; return; }
+  if (panel) panel.style.display = "";
+  const sc = PWIN.scenarios[BOTH_CENTRE ? "both" : "philippe_only"];
+  if (!sc) return;
+
+  const parse = d3.timeParse("%Y-%m-%d");
+  const keepIdx = sc.dates.map((_, i) => i).filter(i => sc.dates[i] >= PWIN_SINCE);
+  const dates = keepIdx.map(i => parse(sc.dates[i]));
+  // S[name] = that candidate's P(win)% series aligned to `dates` (null where absent)
+  const S = {};
+  PWIN.candidates.forEach(n => { S[n] = keepIdx.map(i => {
+    const v = sc.pwin[n] ? sc.pwin[n][i] : null; return v == null ? null : v * 100; }); });
+  const cands = PWIN.candidates.filter(n => S[n].some(v => v != null));
+
+  const W = host.clientWidth || 860, H = 320;
+  const m = { top: 16, right: 70, bottom: 26, left: 34 };
+  // x runs all the way to election day; the lines themselves stop at the last poll date
+  const elec = d3.timeParse("%Y-%m-%d")(MODEL.election_date_r1);
+  const x = d3.scaleTime().domain([dates[0], elec]).range([m.left, W - m.right]);
+  const y = d3.scaleLinear().domain([0, 100]).range([H - m.bottom, m.top]);   // fixed 0–100%
+
+  const svg = d3.select("#pwin").append("svg").attr("width", W).attr("height", H);
+  insetAxisEdgeLabels(svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`)
+    .call(d3.axisBottom(x).ticks(6).tickFormat(d3.timeFormat("%-d %b %Y"))));
+  svg.append("g").attr("class", "axis").attr("transform", `translate(${m.left},0)`)
+    .call(d3.axisLeft(y).ticks(6).tickFormat(d => d + "%"));
+  y.ticks(6).forEach(t => svg.append("line").attr("class", "gridline")
+    .attr("x1", m.left).attr("x2", W - m.right).attr("y1", y(t)).attr("y2", y(t)));
+  svg.append("line").attr("class", "elec-line").attr("x1", x(elec)).attr("x2", x(elec)).attr("y1", m.top).attr("y2", H - m.bottom);
+  svg.append("text").attr("x", x(elec)).attr("y", m.top - 4).attr("text-anchor", "end").attr("font-size", 10).attr("fill", "#999").text("election");
+
+  // these keep their line + legend entry but drop the right-side end label
+  const NO_LABEL = new Set(["David Lisnard", "Gabriel Attal", "Bruno Retailleau"]);
+  const line = d3.line().defined(d => d != null).x((_, i) => x(dates[i])).y(d => y(d)).curve(d3.curveMonotoneX);
+  const labels = [];                      // collect end labels, then de-collide vertically
+  cands.forEach(n => {
+    const col = colorOf(n);
+    const path = svg.append("path").datum(S[n]).attr("fill", "none").attr("stroke", col)
+      .attr("stroke-width", 1.8).attr("d", line).style("pointer-events", "none");
+    let li = -1; for (let i = S[n].length - 1; i >= 0; i--) if (S[n][i] != null) { li = i; break; }
+    if (li >= 0 && !NO_LABEL.has(n)) labels.push({ n, col, x: x(dates[li]) + 4, y: y(S[n][li]) + 3, txt: `${shortName(n)} ${Math.round(S[n][li])}%` });
+    if (animate) { const Ln = path.node().getTotalLength();
+      path.attr("stroke-dasharray", `${Ln} ${Ln}`).attr("stroke-dashoffset", Ln)
+        .transition().delay(150).duration(1300).ease(d3.easeCubicInOut).attr("stroke-dashoffset", 0); }
+  });
+  decollideUp(labels, H - m.bottom - 1);   // spread the cluster, bottom-most just clear of the x-axis
+  labels.forEach(d => {
+    const t = svg.append("text").attr("x", d.x).attr("y", d.y).attr("font-size", 10)
+      .attr("fill", d.col).style("pointer-events", "none").text(d.txt).attr("opacity", animate ? 0 : 1);
+    if (animate) t.transition().delay(1400).duration(500).attr("opacity", 1);
+  });
+  const leg = d3.select("#pwin-legend").html("");
+  cands.forEach(n => { const it = leg.append("span").attr("class", "item");
+    it.append("span").attr("class", "swatch").style("background", colorOf(n)); it.append("span").text(n); });
+
+  const focus = svg.append("g").style("display", "none");
+  focus.append("line").attr("class", "crosshair").attr("y1", m.top).attr("y2", H - m.bottom);
+  const fdots = cands.map(n => focus.append("circle").attr("r", 3).attr("fill", colorOf(n)).attr("stroke", "#fff").attr("stroke-width", 1));
+  const bisect = d3.bisector(d => d).left;
+  svg.append("rect").attr("x", m.left).attr("y", m.top).attr("width", W - m.right - m.left).attr("height", H - m.bottom - m.top)
+    .attr("fill", "transparent")
+    .on("mouseenter", () => focus.style("display", null))
+    .on("mouseleave", () => { focus.style("display", "none"); hideTip(); })
+    .on("mousemove", function (ev) {
+      const px = d3.pointer(ev, svg.node())[0];
+      let i = bisect(dates, x.invert(px));
+      i = i <= 0 ? 0 : i >= dates.length ? dates.length - 1 : (x.invert(px) - dates[i - 1] < dates[i] - x.invert(px) ? i - 1 : i);
+      const sx = x(dates[i]);
+      focus.select("line.crosshair").attr("x1", sx).attr("x2", sx);
+      cands.forEach((n, k) => { const v = S[n][i];
+        fdots[k].style("display", v == null ? "none" : null).attr("cx", sx).attr("cy", v == null ? 0 : y(v)); });
+      const rows = cands.map(n => ({ n, v: S[n][i] })).filter(o => o.v != null).sort((a, b) => b.v - a.v)
+        .map(o => `<div class="tt-row"><span class="tt-sw" style="background:${colorOf(o.n)}"></span>${o.n}<b>${o.v.toFixed(0)}%</b></div>`).join("");
+      showTip(`<div class="tt-h">${fmtDate(sc.dates[keepIdx[i]])} <span class="tt-sub">· P(win)</span></div>${rows}`);
+      moveTip(ev);
+    });
 }
 
 /* ---- 3. 1,000 simulated elections (each dot hoverable = one draw) ---- */
